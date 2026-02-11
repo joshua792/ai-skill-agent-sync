@@ -423,6 +423,43 @@ describe("syncAssetToMachine", () => {
     expect(result).toEqual({ success: true });
     expect(mockDb.$transaction).toHaveBeenCalled();
   });
+
+  it("passes installPath through to machineSyncState.upsert", async () => {
+    mockDb.userMachine.findUnique.mockResolvedValue({ id: "m1", userId: "user_123" });
+    mockDb.asset.findUnique.mockResolvedValue({ ...sampleAsset, authorId: "user_123" });
+    const fd = makeFormData({ machineId: "m1", assetId: "a1", installPath: "my-project/.claude/skills/SKILL.md" });
+    const result = await syncAssetToMachine(fd);
+    expect(result).toEqual({ success: true });
+    // Verify the upsert was called with installPath in both create and update
+    expect(mockDb.machineSyncState.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          installPath: "my-project/.claude/skills/SKILL.md",
+        }),
+        update: expect.objectContaining({
+          installPath: "my-project/.claude/skills/SKILL.md",
+        }),
+      })
+    );
+  });
+
+  it("sets installPath to null when not provided", async () => {
+    mockDb.userMachine.findUnique.mockResolvedValue({ id: "m1", userId: "user_123" });
+    mockDb.asset.findUnique.mockResolvedValue({ ...sampleAsset, authorId: "user_123" });
+    const fd = makeFormData({ machineId: "m1", assetId: "a1" });
+    const result = await syncAssetToMachine(fd);
+    expect(result).toEqual({ success: true });
+    expect(mockDb.machineSyncState.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          installPath: null,
+        }),
+        update: expect.objectContaining({
+          installPath: null,
+        }),
+      })
+    );
+  });
 });
 
 describe("markAssetSynced", () => {

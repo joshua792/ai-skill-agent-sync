@@ -241,6 +241,41 @@ describe("authorization pattern contracts", () => {
   });
 });
 
+// ═══════════════════════════════════════════════════════
+// Prisma Schema Model Field Contracts
+// ═══════════════════════════════════════════════════════
+
+describe("Prisma schema model contracts", () => {
+  it("MachineSyncState model has installPath field", () => {
+    const modelRegex = /model\s+MachineSyncState\s*\{([^}]+)\}/m;
+    const match = schemaContent.match(modelRegex);
+    expect(match).not.toBeNull();
+    expect(match![1]).toContain("installPath");
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// syncAssetToMachine installPath source contract
+// ═══════════════════════════════════════════════════════
+
+describe("syncAssetToMachine installPath contract", () => {
+  const machineActionsPath = path.resolve(__dirname, "../lib/actions/machine.ts");
+  const machineSource = fs.readFileSync(machineActionsPath, "utf-8");
+
+  it("syncAssetToMachine reads installPath from FormData", () => {
+    const fnBody = extractFunctionBody(machineSource, "syncAssetToMachine");
+    expect(fnBody).toContain("installPath");
+  });
+
+  it("syncAssetToMachine passes installPath to machineSyncState.upsert", () => {
+    const fnBody = extractFunctionBody(machineSource, "syncAssetToMachine");
+    // Verify installPath appears in both create and update blocks
+    const createMatch = fnBody.includes("create:");
+    const installPathInBody = fnBody.includes("installPath");
+    expect(createMatch && installPathInBody).toBe(true);
+  });
+});
+
 // ─── Helper to extract function body from source ───
 
 function extractFunctionBody(source: string, fnName: string): string {

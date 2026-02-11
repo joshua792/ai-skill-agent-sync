@@ -12,6 +12,7 @@ import {
   DEFAULT_FILE_NAMES,
   INSTALL_PATHS,
   getDefaultInstallSubdir,
+  PLATFORM_COMPATIBILITY_MAP,
 } from "@/lib/constants";
 
 // ═══════════════════════════════════════════════════════
@@ -310,5 +311,38 @@ describe("getDefaultInstallSubdir", () => {
 
   it("returns . for unknown platforms", () => {
     expect(getDefaultInstallSubdir("UNKNOWN", "SKILL")).toBe(".");
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// PLATFORM_COMPATIBILITY_MAP
+// ═══════════════════════════════════════════════════════
+
+describe("PLATFORM_COMPATIBILITY_MAP", () => {
+  it("has the same keys as PLATFORM_LABELS", () => {
+    expect(Object.keys(PLATFORM_COMPATIBILITY_MAP).sort()).toEqual(
+      Object.keys(PLATFORM_LABELS).sort()
+    );
+  });
+
+  it("all suggested compatible platforms are valid PLATFORM_LABELS keys", () => {
+    const validPlatforms = Object.keys(PLATFORM_LABELS);
+    for (const [platform, compatibles] of Object.entries(PLATFORM_COMPATIBILITY_MAP)) {
+      for (const compat of compatibles) {
+        expect(validPlatforms).toContain(compat);
+      }
+    }
+  });
+
+  it("no platform lists itself as compatible", () => {
+    for (const [platform, compatibles] of Object.entries(PLATFORM_COMPATIBILITY_MAP)) {
+      expect(compatibles).not.toContain(platform);
+    }
+  });
+
+  it("every value is an array", () => {
+    for (const value of Object.values(PLATFORM_COMPATIBILITY_MAP)) {
+      expect(Array.isArray(value)).toBe(true);
+    }
   });
 });
