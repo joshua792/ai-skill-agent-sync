@@ -10,6 +10,8 @@ import {
   VISIBILITY_LABELS,
   INSTALL_SCOPE_LABELS,
   DEFAULT_FILE_NAMES,
+  INSTALL_PATHS,
+  getDefaultInstallSubdir,
 } from "@/lib/constants";
 
 // ═══════════════════════════════════════════════════════
@@ -259,5 +261,54 @@ describe("constants completeness", () => {
         expect(value).not.toBe("");
       }
     }
+  });
+
+  it("INSTALL_PATHS covers all platforms", () => {
+    const platformKeys = Object.keys(PLATFORM_LABELS);
+    for (const key of platformKeys) {
+      expect(INSTALL_PATHS).toHaveProperty(key);
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// getDefaultInstallSubdir
+// ═══════════════════════════════════════════════════════
+
+describe("getDefaultInstallSubdir", () => {
+  it("returns .claude/skills for CLAUDE_CODE + SKILL", () => {
+    expect(getDefaultInstallSubdir("CLAUDE_CODE", "SKILL")).toBe(".claude/skills");
+  });
+
+  it("returns .claude/commands for CLAUDE_CODE + COMMAND", () => {
+    expect(getDefaultInstallSubdir("CLAUDE_CODE", "COMMAND")).toBe(".claude/commands");
+  });
+
+  it("returns .claude/agents for CLAUDE_CODE + AGENT", () => {
+    expect(getDefaultInstallSubdir("CLAUDE_CODE", "AGENT")).toBe(".claude/agents");
+  });
+
+  it("returns .cursor/rules for CURSOR (any type)", () => {
+    expect(getDefaultInstallSubdir("CURSOR", "SKILL")).toBe(".cursor/rules");
+    expect(getDefaultInstallSubdir("CURSOR", "COMMAND")).toBe(".cursor/rules");
+    expect(getDefaultInstallSubdir("CURSOR", "AGENT")).toBe(".cursor/rules");
+  });
+
+  it("returns .windsurf/rules for WINDSURF (any type)", () => {
+    expect(getDefaultInstallSubdir("WINDSURF", "SKILL")).toBe(".windsurf/rules");
+  });
+
+  it("returns .aider for AIDER (any type)", () => {
+    expect(getDefaultInstallSubdir("AIDER", "SKILL")).toBe(".aider");
+  });
+
+  it("returns . for platforms without specific paths", () => {
+    expect(getDefaultInstallSubdir("GEMINI_CLI", "SKILL")).toBe(".");
+    expect(getDefaultInstallSubdir("CHATGPT", "SKILL")).toBe(".");
+    expect(getDefaultInstallSubdir("OTHER", "SKILL")).toBe(".");
+  });
+
+  it("returns . for unknown platforms", () => {
+    expect(getDefaultInstallSubdir("UNKNOWN", "SKILL")).toBe(".");
   });
 });

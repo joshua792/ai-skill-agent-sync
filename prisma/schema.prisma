@@ -186,6 +186,7 @@ model MachineSyncState {
   assetId       String
   asset         Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
   syncedVersion String
+  installPath   String?
   syncedAt      DateTime    @default(now())
 
   @@unique([machineId, assetId])

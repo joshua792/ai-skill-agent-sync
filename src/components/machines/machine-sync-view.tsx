@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Check } from "lucide-react";
+import { Download, Check, FolderOpen } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { AssetTypeBadge } from "@/components/assets/asset-type-badge";
 import { SyncStatusBadge } from "./sync-status-badge";
+import { InstallToProjectDialog } from "./install-to-project-dialog";
 import {
   syncAssetToMachine,
   markAssetSynced,
@@ -28,6 +29,7 @@ interface SerializedSyncState {
   machineId: string;
   assetId: string;
   syncedVersion: string;
+  installPath: string | null;
   syncedAt: string;
 }
 
@@ -51,6 +53,7 @@ interface SerializedAsset {
   primaryFileName: string;
   storageType: string;
   bundleUrl: string | null;
+  installScope: string;
 }
 
 interface MachineSyncViewProps {
@@ -75,6 +78,7 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [installAsset, setInstallAsset] = useState<SerializedAsset | null>(null);
 
   const syncMap = new Map(
     machine.syncStates.map((s) => [s.assetId, s])
@@ -259,20 +263,35 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant={status === "up_to_date" ? "outline" : "default"}
-                        className="gap-1.5"
-                        onClick={() => handleDownloadAndSync(asset)}
-                        disabled={
-                          syncingId === asset.id || (!asset.content && !asset.bundleUrl)
-                        }
-                      >
-                        <Download className="size-3" />
-                        {syncingId === asset.id
-                          ? "Syncing..."
-                          : "Download & Sync"}
-                      </Button>
+                      {asset.installScope === "PROJECT" ? (
+                        <Button
+                          size="sm"
+                          variant={status === "up_to_date" ? "outline" : "default"}
+                          className="gap-1.5"
+                          onClick={() => setInstallAsset(asset)}
+                          disabled={!asset.content && !asset.bundleUrl}
+                        >
+                          <FolderOpen className="size-3" />
+                          {status === "up_to_date"
+                            ? "Reinstall"
+                            : "Install to Project"}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={status === "up_to_date" ? "outline" : "default"}
+                          className="gap-1.5"
+                          onClick={() => handleDownloadAndSync(asset)}
+                          disabled={
+                            syncingId === asset.id || (!asset.content && !asset.bundleUrl)
+                          }
+                        >
+                          <Download className="size-3" />
+                          {syncingId === asset.id
+                            ? "Syncing..."
+                            : "Download & Sync"}
+                        </Button>
+                      )}
                       {status !== "up_to_date" && (
                         <Button
                           size="sm"
@@ -304,6 +323,25 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Install to Project dialog for PROJECT-scoped assets */}
+      {installAsset && (
+        <InstallToProjectDialog
+          open={!!installAsset}
+          onOpenChange={(open) => {
+            if (!open) setInstallAsset(null);
+          }}
+          asset={installAsset}
+          machineId={machine.id}
+          previousInstallPath={
+            syncMap.get(installAsset.id)?.installPath ?? null
+          }
+          onInstallComplete={() => {
+            router.refresh();
+            setInstallAsset(null);
+          }}
+        />
+      )}
     </div>
   );
 }

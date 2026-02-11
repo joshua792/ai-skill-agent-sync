@@ -156,7 +156,7 @@ describe("FormData fields ↔ schema keys", () => {
   });
 
   it("syncAssetToMachine FormData keys match syncAssetSchema", () => {
-    const formDataKeys = ["machineId", "assetId"];
+    const formDataKeys = ["machineId", "assetId", "installPath"];
     const schemaKeys = Object.keys(syncAssetSchema.shape);
     expect(formDataKeys.sort()).toEqual(schemaKeys.sort());
   });

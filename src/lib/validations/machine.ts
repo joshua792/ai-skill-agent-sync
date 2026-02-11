@@ -18,4 +18,9 @@ export const registerMachineSchema = z.object({
 export const syncAssetSchema = z.object({
   machineId: z.string().min(1, "Machine ID is required"),
   assetId: z.string().min(1, "Asset ID is required"),
+  installPath: z
+    .string()
+    .max(1024, "Install path is too long")
+    .optional()
+    .or(z.literal("")),
 });

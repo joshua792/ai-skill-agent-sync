@@ -109,6 +109,7 @@ export async function syncAssetToMachine(
   const raw = {
     machineId: formData.get("machineId"),
     assetId: formData.get("assetId"),
+    installPath: formData.get("installPath") || undefined,
   };
 
   const parsed = syncAssetSchema.safeParse(raw);
@@ -134,6 +135,7 @@ export async function syncAssetToMachine(
   }
 
   const now = new Date();
+  const installPath = parsed.data.installPath || null;
 
   await db.$transaction([
     db.machineSyncState.upsert({
@@ -147,10 +149,12 @@ export async function syncAssetToMachine(
         machineId: machine.id,
         assetId: asset.id,
         syncedVersion: asset.currentVersion,
+        installPath,
         syncedAt: now,
       },
       update: {
         syncedVersion: asset.currentVersion,
+        installPath,
         syncedAt: now,
       },
     }),

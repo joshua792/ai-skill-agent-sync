@@ -511,4 +511,42 @@ describe("syncAssetSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts optional installPath", () => {
+    const result = syncAssetSchema.safeParse({
+      machineId: "machine-1",
+      assetId: "asset-1",
+      installPath: "my-project/.claude/skills/SKILL.md",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts empty string installPath", () => {
+    const result = syncAssetSchema.safeParse({
+      machineId: "machine-1",
+      assetId: "asset-1",
+      installPath: "",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts absent installPath", () => {
+    const result = syncAssetSchema.safeParse({
+      machineId: "machine-1",
+      assetId: "asset-1",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.installPath).toBeUndefined();
+    }
+  });
+
+  it("rejects installPath over 1024 chars", () => {
+    const result = syncAssetSchema.safeParse({
+      machineId: "machine-1",
+      assetId: "asset-1",
+      installPath: "a".repeat(1025),
+    });
+    expect(result.success).toBe(false);
+  });
 });

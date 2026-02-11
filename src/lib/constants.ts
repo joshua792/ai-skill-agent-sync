@@ -73,6 +73,16 @@ export const INSTALL_SCOPE_DESCRIPTIONS: Record<string, string> = {
   PROJECT: "Scoped to a specific project directory",
 };
 
+export const PLATFORM_COMPATIBILITY_MAP: Record<string, string[]> = {
+  CLAUDE_CODE: ["GEMINI_CLI", "CURSOR", "AIDER"],
+  GEMINI_CLI: ["CLAUDE_CODE", "AIDER"],
+  CHATGPT: [],
+  CURSOR: ["WINDSURF", "CLAUDE_CODE"],
+  WINDSURF: ["CURSOR", "CLAUDE_CODE"],
+  AIDER: ["CLAUDE_CODE", "GEMINI_CLI"],
+  OTHER: [],
+};
+
 export const STORAGE_TYPE_LABELS: Record<string, string> = {
   INLINE: "Inline",
   BUNDLE: "Bundle",
@@ -85,3 +95,29 @@ export const DEFAULT_FILE_NAMES: Record<string, string> = {
   COMMAND: "COMMAND.md",
   AGENT: "AGENT.md",
 };
+
+// Default install subdirectories for PROJECT-scoped assets.
+// Platform → AssetType → relative path from project root.
+// A "*" key acts as a catch-all for that platform.
+export const INSTALL_PATHS: Record<string, Record<string, string>> = {
+  CLAUDE_CODE: {
+    SKILL: ".claude/skills",
+    COMMAND: ".claude/commands",
+    AGENT: ".claude/agents",
+  },
+  CURSOR: { "*": ".cursor/rules" },
+  WINDSURF: { "*": ".windsurf/rules" },
+  AIDER: { "*": ".aider" },
+  GEMINI_CLI: { "*": "." },
+  CHATGPT: { "*": "." },
+  OTHER: { "*": "." },
+};
+
+export function getDefaultInstallSubdir(
+  platform: string,
+  assetType: string
+): string {
+  const platformMap = INSTALL_PATHS[platform];
+  if (!platformMap) return ".";
+  return platformMap[assetType] ?? platformMap["*"] ?? ".";
+}

@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   ASSET_TYPE_LABELS,
   PLATFORM_LABELS,
+  PLATFORM_COMPATIBILITY_MAP,
   CATEGORY_LABELS,
   LICENSE_LABELS,
   VISIBILITY_LABELS,
@@ -79,6 +80,16 @@ export function AssetForm({
   const [fileNameTouched, setFileNameTouched] = useState(
     !!defaultValues.primaryFileName
   );
+  const [selectedPlatform, setSelectedPlatform] = useState(
+    defaultValues.primaryPlatform ?? "CLAUDE_CODE"
+  );
+  const [compatChecked, setCompatChecked] = useState<Set<string>>(
+    () => new Set(
+      defaultValues.compatiblePlatforms ??
+      PLATFORM_COMPATIBILITY_MAP[defaultValues.primaryPlatform ?? "CLAUDE_CODE"] ??
+      []
+    )
+  );
 
   // Bundle state
   const [storageType, setStorageType] = useState(
@@ -126,6 +137,10 @@ export function AssetForm({
 
       setParsedValues(next);
       setSelectedType(next.type ?? defaultValues.type ?? "SKILL");
+      if (next.primaryPlatform) {
+        setSelectedPlatform(next.primaryPlatform);
+        setCompatChecked(new Set(PLATFORM_COMPATIBILITY_MAP[next.primaryPlatform] ?? []));
+      }
       setDescLength(next.description?.length ?? 0);
       setFileNameTouched(true);
       setUploadedFile(file.name);
@@ -193,6 +208,12 @@ export function AssetForm({
     } finally {
       setUploadingZip(false);
     }
+  }
+
+  function handlePlatformChange(platform: string) {
+    setSelectedPlatform(platform);
+    const suggested = PLATFORM_COMPATIBILITY_MAP[platform] ?? [];
+    setCompatChecked(new Set(suggested));
   }
 
   async function handleSubmit(formData: FormData) {
@@ -485,7 +506,8 @@ export function AssetForm({
         <Select
           key={`platform-${fieldKey}`}
           name="primaryPlatform"
-          defaultValue={ev.primaryPlatform ?? "CLAUDE_CODE"}
+          value={selectedPlatform}
+          onValueChange={handlePlatformChange}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -507,17 +529,27 @@ export function AssetForm({
           {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
             <label key={value} className="flex items-center gap-2 text-sm">
               <input
-                key={`compat-${value}-${fieldKey}`}
                 type="checkbox"
                 name="compatiblePlatforms"
                 value={value}
-                defaultChecked={ev.compatiblePlatforms?.includes(value)}
+                checked={compatChecked.has(value)}
+                onChange={(e) => {
+                  setCompatChecked((prev) => {
+                    const next = new Set(prev);
+                    if (e.target.checked) next.add(value);
+                    else next.delete(value);
+                    return next;
+                  });
+                }}
                 className="rounded border-input"
               />
               {label}
             </label>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Auto-suggested based on primary platform. You can adjust these manually.
+        </p>
       </div>
 
       {/* Category */}
