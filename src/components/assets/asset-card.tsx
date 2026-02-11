@@ -7,10 +7,12 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { AssetTypeBadge } from "./asset-type-badge";
 import { PlatformBadge } from "./platform-badge";
 import { VisibilityBadge } from "./visibility-badge";
-import { Download } from "lucide-react";
+import { Download, GitFork } from "lucide-react";
+import { LICENSE_LABELS } from "@/lib/constants";
 
 interface AssetCardProps {
   asset: {
@@ -21,6 +23,9 @@ interface AssetCardProps {
     primaryPlatform: string;
     visibility: string;
     downloadCount: number;
+    forkCount: number;
+    forkedFromId?: string | null;
+    license: string;
     updatedAt: Date;
     author?: {
       username: string;
@@ -47,8 +52,16 @@ export function AssetCard({
             {showVisibility && (
               <VisibilityBadge visibility={asset.visibility} />
             )}
+            {asset.license !== "UNLICENSED" && (
+              <Badge variant="outline" className="text-xs">
+                {LICENSE_LABELS[asset.license] ?? asset.license}
+              </Badge>
+            )}
           </div>
-          <CardTitle className="text-base group-hover:text-primary transition-colors">
+          <CardTitle className="text-base group-hover:text-primary transition-colors flex items-center gap-1.5">
+            {asset.forkedFromId && (
+              <GitFork className="size-3 text-muted-foreground shrink-0" />
+            )}
             {asset.name}
           </CardTitle>
           <CardDescription className="line-clamp-2">
@@ -56,9 +69,15 @@ export function AssetCard({
           </CardDescription>
         </CardHeader>
         <CardFooter className="text-xs text-muted-foreground justify-between">
-          <div className="flex items-center gap-1">
-            <Download className="size-3" />
-            {asset.downloadCount}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Download className="size-3" />
+              {asset.downloadCount}
+            </div>
+            <div className="flex items-center gap-1">
+              <GitFork className="size-3" />
+              {asset.forkCount}
+            </div>
           </div>
           {showAuthor && asset.author && (
             <span>

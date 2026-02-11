@@ -36,6 +36,15 @@ export default async function AssetDetailPage({ params }: Props) {
         },
       },
       versions: { orderBy: { createdAt: "desc" } },
+      forkedFrom: {
+        select: {
+          name: true,
+          slug: true,
+          author: {
+            select: { username: true, displayName: true },
+          },
+        },
+      },
     },
   });
 

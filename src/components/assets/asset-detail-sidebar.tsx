@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   CATEGORY_LABELS,
   LICENSE_LABELS,
+  LICENSE_DESCRIPTIONS,
   INSTALL_SCOPE_LABELS,
   PLATFORM_LABELS,
 } from "@/lib/constants";
@@ -57,9 +58,14 @@ export function AssetDetailSidebar({ asset }: AssetDetailSidebarProps) {
       {/* License */}
       <div>
         <p className="text-xs text-muted-foreground mb-1">License</p>
-        <p className="text-sm">
+        <p className="text-sm font-medium">
           {LICENSE_LABELS[asset.license] ?? asset.license}
         </p>
+        {LICENSE_DESCRIPTIONS[asset.license] && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {LICENSE_DESCRIPTIONS[asset.license]}
+          </p>
+        )}
       </div>
 
       {/* Install Scope */}

@@ -46,6 +46,17 @@ export const LICENSE_LABELS: Record<string, string> = {
   CUSTOM: "Custom",
 };
 
+export const LICENSE_DESCRIPTIONS: Record<string, string> = {
+  MIT: "Permissive license allowing reuse with minimal restrictions. Requires attribution.",
+  APACHE_2: "Permissive license similar to MIT with an express grant of patent rights.",
+  GPL_3: "Copyleft license requiring derived works to use the same license.",
+  BSD_3: "Permissive license similar to MIT with a non-endorsement clause.",
+  CC_BY_4: "Allows sharing and adapting for any purpose with attribution.",
+  CC_BY_SA_4: "Allows sharing and adapting with attribution. Derivatives must use the same license.",
+  UNLICENSED: "No license specified. All rights reserved by the author.",
+  CUSTOM: "Custom license. See the license text for details.",
+};
+
 export const VISIBILITY_LABELS: Record<string, string> = {
   PRIVATE: "Private",
   SHARED: "Shared",

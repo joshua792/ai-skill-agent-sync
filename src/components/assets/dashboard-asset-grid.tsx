@@ -15,6 +15,9 @@ interface SerializedAsset {
   primaryPlatform: string;
   visibility: string;
   downloadCount: number;
+  forkCount: number;
+  forkedFromId: string | null;
+  license: string;
   updatedAt: string;
 }
 

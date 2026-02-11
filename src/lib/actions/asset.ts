@@ -267,3 +267,61 @@ export async function downloadAsset(
   revalidatePath(`/assets/${asset.slug}`);
   return { success: true };
 }
+
+// ─── forkAsset ────────────────────────────────────────
+
+type ForkResult =
+  | { success: true; slug: string }
+  | { success: false; error: string };
+
+export async function forkAsset(assetId: string): Promise<ForkResult> {
+  const userId = await requireUser();
+
+  const source = await db.asset.findUnique({ where: { id: assetId } });
+  if (!source || source.deletedAt) {
+    return { success: false, error: "Asset not found" };
+  }
+
+  if (source.visibility === "PRIVATE") {
+    return { success: false, error: "Cannot fork a private asset" };
+  }
+
+  if (source.authorId === userId) {
+    return { success: false, error: "Cannot fork your own asset" };
+  }
+
+  const slug = await generateUniqueSlug(source.name);
+
+  await db.$transaction([
+    db.asset.create({
+      data: {
+        slug,
+        name: source.name,
+        description: source.description,
+        type: source.type,
+        primaryPlatform: source.primaryPlatform,
+        compatiblePlatforms: source.compatiblePlatforms,
+        category: source.category,
+        tags: source.tags,
+        license: source.license,
+        licenseText: source.licenseText,
+        storageType: source.storageType,
+        installScope: source.installScope,
+        content: source.content,
+        primaryFileName: source.primaryFileName,
+        visibility: "PRIVATE",
+        currentVersion: "1.0.0",
+        forkedFromId: source.id,
+        authorId: userId,
+      },
+    }),
+    db.asset.update({
+      where: { id: source.id },
+      data: { forkCount: { increment: 1 } },
+    }),
+  ]);
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/assets/${source.slug}`);
+  return { success: true, slug };
+}

@@ -30,6 +30,7 @@ import {
   deleteAsset,
   publishVersion,
   downloadAsset,
+  forkAsset,
 } from "@/lib/actions/asset";
 
 interface AssetActionsProps {
@@ -50,6 +51,7 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
   const [deleting, setDeleting] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [forking, setForking] = useState(false);
 
   async function handleDelete() {
     setDeleting(true);
@@ -100,6 +102,18 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
     toast.success("Link copied to clipboard!");
   }
 
+  async function handleFork() {
+    setForking(true);
+    const result = await forkAsset(asset.id);
+    if (result.success) {
+      toast.success("Asset forked! You can now customize it.");
+      router.push(`/assets/${result.slug}`);
+    } else {
+      toast.error(result.error);
+    }
+    setForking(false);
+  }
+
   async function handlePublishVersion(formData: FormData) {
     setPublishing(true);
     formData.set("assetId", asset.id);
@@ -146,9 +160,17 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
         <Copy className="size-3.5" /> Copy Content
       </Button>
 
-      <Button variant="outline" className="w-full gap-2" disabled>
-        <GitFork className="size-3.5" /> Fork (coming soon)
-      </Button>
+      {!isOwner && (
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={handleFork}
+          disabled={forking}
+        >
+          <GitFork className="size-3.5" />
+          {forking ? "Forking..." : "Fork"}
+        </Button>
+      )}
 
       {isOwner && (
         <>

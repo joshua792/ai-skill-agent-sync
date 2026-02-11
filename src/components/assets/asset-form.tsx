@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { Upload, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,8 @@ import {
   INSTALL_SCOPE_DESCRIPTIONS,
   DEFAULT_FILE_NAMES,
 } from "@/lib/constants";
+import { parseMarkdownFile } from "@/lib/parse-markdown";
+import { cn } from "@/lib/utils";
 
 interface AssetFormProps {
   action: (formData: FormData) => Promise<void>;
@@ -50,6 +53,13 @@ export function AssetForm({
   submitLabel = "Create Asset",
 }: AssetFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [parsedValues, setParsedValues] = useState<
+    Partial<NonNullable<AssetFormProps["defaultValues"]>>
+  >({});
+  const [fieldKey, setFieldKey] = useState(0);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [selectedType, setSelectedType] = useState(
     defaultValues.type ?? "SKILL"
   );
@@ -61,7 +71,54 @@ export function AssetForm({
     !!defaultValues.primaryFileName
   );
 
+  const ev = { ...defaultValues, ...parsedValues };
   const autoFileName = DEFAULT_FILE_NAMES[selectedType] ?? "README.md";
+
+  function handleFileUpload(file: File) {
+    if (!file.name.endsWith(".md")) {
+      toast.error("Please upload a .md file");
+      return;
+    }
+    if (file.size > 512 * 1024) {
+      toast.error("File too large. Maximum size is 500 KB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const parsed = parseMarkdownFile(file.name, text);
+
+      const next: Partial<NonNullable<AssetFormProps["defaultValues"]>> = {
+        content: parsed.content,
+        primaryFileName: parsed.primaryFileName,
+      };
+      if (parsed.type) next.type = parsed.type;
+      if (parsed.name) next.name = parsed.name;
+      if (parsed.description) next.description = parsed.description;
+      if (parsed.tags?.length) next.tags = parsed.tags;
+      if (parsed.primaryPlatform) next.primaryPlatform = parsed.primaryPlatform;
+      if (parsed.category) next.category = parsed.category;
+
+      setParsedValues(next);
+      setSelectedType(next.type ?? defaultValues.type ?? "SKILL");
+      setDescLength(next.description?.length ?? 0);
+      setFileNameTouched(true);
+      setUploadedFile(file.name);
+      setFieldKey((k) => k + 1);
+
+      const filled = [
+        parsed.name,
+        parsed.description,
+        parsed.type,
+        parsed.tags?.length,
+        parsed.primaryPlatform,
+        parsed.category,
+      ].filter(Boolean).length + 2; // +2 for content & filename
+      toast.success(`Parsed ${filled} fields from ${file.name}`);
+    };
+    reader.readAsText(file);
+  }
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -79,14 +136,80 @@ export function AssetForm({
 
   return (
     <form ref={formRef} action={handleSubmit} className="space-y-8 max-w-3xl">
+      {/* File Upload Drop Zone */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const file = e.dataTransfer.files[0];
+          if (file) handleFileUpload(file);
+        }}
+        onClick={() => fileInputRef.current?.click()}
+        className={cn(
+          "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
+          isDragging
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25 hover:border-muted-foreground/50"
+        )}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFileUpload(file);
+            e.target.value = "";
+          }}
+        />
+        {uploadedFile ? (
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm font-medium">{uploadedFile}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+            >
+              Replace
+            </Button>
+          </div>
+        ) : (
+          <>
+            <Upload className="h-8 w-8 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Drop a <span className="font-mono">.md</span> file here, or click
+              to browse
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Fields will be auto-filled from the file content
+            </p>
+          </>
+        )}
+      </div>
+
       {/* Name */}
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input
+          key={`name-${fieldKey}`}
           id="name"
           name="name"
           required
-          defaultValue={defaultValues.name}
+          defaultValue={ev.name}
           placeholder="e.g. Smart Commit"
           maxLength={100}
         />
@@ -96,10 +219,11 @@ export function AssetForm({
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
         <Textarea
+          key={`desc-${fieldKey}`}
           id="description"
           name="description"
           required
-          defaultValue={defaultValues.description}
+          defaultValue={ev.description}
           placeholder="Brief description of what this asset does..."
           maxLength={280}
           onChange={(e) => setDescLength(e.target.value.length)}
@@ -113,6 +237,7 @@ export function AssetForm({
       <div className="space-y-2">
         <Label>Type</Label>
         <Select
+          key={`type-${fieldKey}`}
           name="type"
           defaultValue={selectedType}
           onValueChange={(v) => setSelectedType(v)}
@@ -136,8 +261,9 @@ export function AssetForm({
       <div className="space-y-2">
         <Label>Primary Platform</Label>
         <Select
+          key={`platform-${fieldKey}`}
           name="primaryPlatform"
-          defaultValue={defaultValues.primaryPlatform ?? "CLAUDE_CODE"}
+          defaultValue={ev.primaryPlatform ?? "CLAUDE_CODE"}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -159,12 +285,11 @@ export function AssetForm({
           {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
             <label key={value} className="flex items-center gap-2 text-sm">
               <input
+                key={`compat-${value}-${fieldKey}`}
                 type="checkbox"
                 name="compatiblePlatforms"
                 value={value}
-                defaultChecked={defaultValues.compatiblePlatforms?.includes(
-                  value
-                )}
+                defaultChecked={ev.compatiblePlatforms?.includes(value)}
                 className="rounded border-input"
               />
               {label}
@@ -177,8 +302,9 @@ export function AssetForm({
       <div className="space-y-2">
         <Label>Category</Label>
         <Select
+          key={`cat-${fieldKey}`}
           name="category"
-          defaultValue={defaultValues.category ?? "OTHER"}
+          defaultValue={ev.category ?? "OTHER"}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -197,9 +323,10 @@ export function AssetForm({
       <div className="space-y-2">
         <Label htmlFor="tags">Tags</Label>
         <Input
+          key={`tags-${fieldKey}`}
           id="tags"
           name="tags"
-          defaultValue={defaultValues.tags?.join(", ")}
+          defaultValue={ev.tags?.join(", ")}
           placeholder="git, commit, automation (comma-separated)"
         />
         <p className="text-xs text-muted-foreground">
@@ -216,11 +343,12 @@ export function AssetForm({
           {Object.entries(VISIBILITY_LABELS).map(([value, label]) => (
             <label key={value} className="flex items-center gap-2 text-sm">
               <input
+                key={`vis-${value}-${fieldKey}`}
                 type="radio"
                 name="visibility"
                 value={value}
                 defaultChecked={
-                  (defaultValues.visibility ?? "PRIVATE") === value
+                  (ev.visibility ?? "PRIVATE") === value
                 }
               />
               {label}
@@ -233,8 +361,9 @@ export function AssetForm({
       <div className="space-y-2">
         <Label>License</Label>
         <Select
+          key={`license-${fieldKey}`}
           name="license"
-          defaultValue={defaultValues.license ?? "UNLICENSED"}
+          defaultValue={ev.license ?? "UNLICENSED"}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -256,11 +385,12 @@ export function AssetForm({
           {Object.entries(INSTALL_SCOPE_LABELS).map(([value, label]) => (
             <label key={value} className="flex items-start gap-2 text-sm">
               <input
+                key={`scope-${value}-${fieldKey}`}
                 type="radio"
                 name="installScope"
                 value={value}
                 defaultChecked={
-                  (defaultValues.installScope ?? "PROJECT") === value
+                  (ev.installScope ?? "PROJECT") === value
                 }
                 className="mt-0.5"
               />
@@ -281,10 +411,11 @@ export function AssetForm({
       <div className="space-y-2">
         <Label htmlFor="content">Content</Label>
         <Textarea
+          key={`content-${fieldKey}`}
           id="content"
           name="content"
           required
-          defaultValue={defaultValues.content}
+          defaultValue={ev.content}
           placeholder="Paste your skill/command/agent content here..."
           className="min-h-[300px] font-mono text-sm"
         />
@@ -298,10 +429,10 @@ export function AssetForm({
           name="primaryFileName"
           required
           defaultValue={
-            defaultValues.primaryFileName ??
+            ev.primaryFileName ??
             (fileNameTouched ? undefined : autoFileName)
           }
-          key={fileNameTouched ? "touched" : autoFileName}
+          key={fileNameTouched ? `touched-${fieldKey}` : `${autoFileName}-${fieldKey}`}
           onChange={() => setFileNameTouched(true)}
           placeholder="e.g. SKILL.md"
         />

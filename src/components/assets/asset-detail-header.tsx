@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GitFork } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AssetTypeBadge } from "./asset-type-badge";
 import { PlatformBadge } from "./platform-badge";
@@ -16,6 +17,14 @@ interface AssetDetailHeaderProps {
       displayName: string | null;
       avatarUrl: string | null;
     };
+    forkedFrom?: {
+      name: string;
+      slug: string;
+      author: {
+        username: string;
+        displayName: string | null;
+      };
+    } | null;
   };
 }
 
@@ -41,6 +50,25 @@ export function AssetDetailHeader({ asset }: AssetDetailHeaderProps) {
         </Avatar>
         {asset.author.displayName ?? asset.author.username}
       </Link>
+      {asset.forkedFrom && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+          <GitFork className="size-3" />
+          <span>Forked from</span>
+          <Link
+            href={`/assets/${asset.forkedFrom.slug}`}
+            className="hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            {asset.forkedFrom.name}
+          </Link>
+          <span>by</span>
+          <Link
+            href={`/profile/${asset.forkedFrom.author.username}`}
+            className="hover:text-foreground transition-colors"
+          >
+            @{asset.forkedFrom.author.username}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
