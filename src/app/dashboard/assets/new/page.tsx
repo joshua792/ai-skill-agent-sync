@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Plus } from "lucide-react";
+import { createAsset } from "@/lib/actions/asset";
+import { AssetForm } from "@/components/assets/asset-form";
 
 export const metadata: Metadata = {
   title: "Create Asset",
@@ -12,11 +14,7 @@ export default function NewAssetPage() {
         <Plus className="h-6 w-6 text-muted-foreground" />
         <h1 className="text-2xl font-bold">Create New Asset</h1>
       </div>
-      <div className="rounded-lg border border-dashed p-12 text-center">
-        <p className="text-muted-foreground">
-          Asset creation form coming in Phase 2.
-        </p>
-      </div>
+      <AssetForm action={createAsset} />
     </div>
   );
 }
