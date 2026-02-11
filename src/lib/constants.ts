@@ -73,6 +73,13 @@ export const INSTALL_SCOPE_DESCRIPTIONS: Record<string, string> = {
   PROJECT: "Scoped to a specific project directory",
 };
 
+export const STORAGE_TYPE_LABELS: Record<string, string> = {
+  INLINE: "Inline",
+  BUNDLE: "Bundle",
+};
+
+export const MAX_BUNDLE_SIZE_MB = 4;
+
 export const DEFAULT_FILE_NAMES: Record<string, string> = {
   SKILL: "SKILL.md",
   COMMAND: "COMMAND.md",

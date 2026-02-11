@@ -18,6 +18,7 @@ interface SerializedAsset {
   forkCount: number;
   forkedFromId: string | null;
   license: string;
+  storageType: string;
   updatedAt: string;
 }
 

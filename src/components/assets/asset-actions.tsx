@@ -40,6 +40,8 @@ interface AssetActionsProps {
     content: string | null;
     currentVersion: string;
     visibility: string;
+    storageType: string;
+    bundleUrl?: string | null;
   };
   isOwner: boolean;
 }
@@ -75,8 +77,16 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
 
   async function handleDownload() {
     setDownloading(true);
-    if (asset.content) {
-      // Create a file download
+
+    if (asset.storageType === "BUNDLE" && asset.bundleUrl) {
+      // Bundle download — open blob URL directly
+      window.open(asset.bundleUrl, "_blank");
+      const result = await downloadAsset(asset.id, asset.currentVersion);
+      if (result.success) {
+        toast.success("Bundle downloaded!");
+      }
+    } else if (asset.content) {
+      // Inline download — create a file
       const blob = new Blob([asset.content], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -87,12 +97,12 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Track the download
       const result = await downloadAsset(asset.id, asset.currentVersion);
       if (result.success) {
         toast.success("Asset downloaded!");
       }
     }
+
     setDownloading(false);
   }
 
@@ -135,7 +145,7 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
         variant="default"
         className="w-full gap-2"
         onClick={handleDownload}
-        disabled={downloading || !asset.content}
+        disabled={downloading || (!asset.content && !asset.bundleUrl)}
       >
         <Download className="size-3.5" />
         {downloading ? "Downloading..." : "Download"}

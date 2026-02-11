@@ -55,6 +55,9 @@ export default async function EditAssetPage({
           installScope: asset.installScope,
           content: asset.content ?? "",
           primaryFileName: asset.primaryFileName,
+          storageType: asset.storageType,
+          bundleUrl: asset.bundleUrl ?? undefined,
+          bundleManifest: (asset.bundleManifest as unknown as import("@/lib/types/bundle").BundleManifest) ?? undefined,
         }}
       />
     </div>

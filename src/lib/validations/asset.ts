@@ -6,8 +6,9 @@ const categoryValues = ["CODE_GENERATION", "CODE_REVIEW", "DOCUMENTATION", "TEST
 const visibilityValues = ["PRIVATE", "SHARED", "PUBLIC"] as const;
 const licenseValues = ["MIT", "APACHE_2", "GPL_3", "BSD_3", "CC_BY_4", "CC_BY_SA_4", "UNLICENSED", "CUSTOM"] as const;
 const installScopeValues = ["USER", "PROJECT"] as const;
+const storageTypeValues = ["INLINE", "BUNDLE"] as const;
 
-export const createAssetSchema = z.object({
+const baseAssetSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name must be under 100 characters"),
   description: z.string().min(10, "Description must be at least 10 characters").max(280, "Description must be under 280 characters"),
   type: z.enum(assetTypeValues),
@@ -18,11 +19,23 @@ export const createAssetSchema = z.object({
   visibility: z.enum(visibilityValues).default("PRIVATE"),
   license: z.enum(licenseValues).default("UNLICENSED"),
   installScope: z.enum(installScopeValues).default("PROJECT"),
-  content: z.string().min(1, "Content is required"),
+  storageType: z.enum(storageTypeValues).default("INLINE"),
+  content: z.string().optional().default(""),
   primaryFileName: z.string().min(1, "File name is required").max(255),
+  bundleUrl: z.string().url().optional(),
+  bundleManifest: z.any().optional(),
 });
 
-export const updateAssetSchema = createAssetSchema.partial();
+export const createAssetSchema = baseAssetSchema.refine(
+  (data) => {
+    if (data.storageType === "INLINE") return data.content && data.content.length > 0;
+    if (data.storageType === "BUNDLE") return !!data.bundleUrl;
+    return true;
+  },
+  { message: "Inline assets require content; bundle assets require a bundle URL", path: ["content"] }
+);
+
+export const updateAssetSchema = baseAssetSchema.partial();
 
 export const publishVersionSchema = z.object({
   assetId: z.string().min(1),

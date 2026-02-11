@@ -4,15 +4,21 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BundleFileTree } from "./bundle-file-tree";
+import type { BundleManifest } from "@/lib/types/bundle";
 
 interface AssetDetailContentProps {
   content: string | null;
   fileName: string;
+  storageType?: string;
+  bundleManifest?: BundleManifest | null;
 }
 
 export function AssetDetailContent({
   content,
   fileName,
+  storageType,
+  bundleManifest,
 }: AssetDetailContentProps) {
   const [copied, setCopied] = useState(false);
 
@@ -26,9 +32,14 @@ export function AssetDetailContent({
   }
 
   return (
-    <div>
+    <div className="space-y-4">
+      {storageType === "BUNDLE" && bundleManifest && (
+        <BundleFileTree manifest={bundleManifest} primaryFileName={fileName} />
+      )}
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold">{fileName}</h2>
+        <h2 className="text-lg font-semibold">
+          {storageType === "BUNDLE" ? `${fileName} (primary file)` : fileName}
+        </h2>
         <Button
           variant="outline"
           size="sm"

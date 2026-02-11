@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, FileText } from "lucide-react";
+import { Upload, FileText, Package, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -24,9 +24,12 @@ import {
   INSTALL_SCOPE_LABELS,
   INSTALL_SCOPE_DESCRIPTIONS,
   DEFAULT_FILE_NAMES,
+  MAX_BUNDLE_SIZE_MB,
 } from "@/lib/constants";
 import { parseMarkdownFile } from "@/lib/parse-markdown";
+import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { BundleManifest } from "@/lib/types/bundle";
 
 interface AssetFormProps {
   action: (formData: FormData) => Promise<void>;
@@ -43,6 +46,9 @@ interface AssetFormProps {
     installScope?: string;
     content?: string;
     primaryFileName?: string;
+    storageType?: string;
+    bundleUrl?: string;
+    bundleManifest?: BundleManifest;
   };
   submitLabel?: string;
 }
@@ -54,6 +60,7 @@ export function AssetForm({
 }: AssetFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const [parsedValues, setParsedValues] = useState<
     Partial<NonNullable<AssetFormProps["defaultValues"]>>
   >({});
@@ -71,8 +78,23 @@ export function AssetForm({
     !!defaultValues.primaryFileName
   );
 
+  // Bundle state
+  const [storageType, setStorageType] = useState(
+    defaultValues.storageType ?? "INLINE"
+  );
+  const [bundleUrl, setBundleUrl] = useState(defaultValues.bundleUrl ?? "");
+  const [bundleManifest, setBundleManifest] = useState<BundleManifest | null>(
+    defaultValues.bundleManifest ?? null
+  );
+  const [bundleContent, setBundleContent] = useState<string>(
+    defaultValues.storageType === "BUNDLE" ? (defaultValues.content ?? "") : ""
+  );
+  const [uploadingZip, setUploadingZip] = useState(false);
+  const [uploadedZipName, setUploadedZipName] = useState<string | null>(null);
+
   const ev = { ...defaultValues, ...parsedValues };
   const autoFileName = DEFAULT_FILE_NAMES[selectedType] ?? "README.md";
+  const isBundle = storageType === "BUNDLE";
 
   function handleFileUpload(file: File) {
     if (!file.name.endsWith(".md")) {
@@ -120,6 +142,57 @@ export function AssetForm({
     reader.readAsText(file);
   }
 
+  async function handleZipUpload(file: File) {
+    if (!file.name.endsWith(".zip")) {
+      toast.error("Please upload a .zip file");
+      return;
+    }
+    if (file.size > MAX_BUNDLE_SIZE_MB * 1024 * 1024) {
+      toast.error(`File too large. Maximum size is ${MAX_BUNDLE_SIZE_MB} MB.`);
+      return;
+    }
+
+    setUploadingZip(true);
+
+    // Get the current primary file name from the form
+    const form = formRef.current;
+    const primaryFileNameInput = form?.querySelector<HTMLInputElement>(
+      'input[name="primaryFileName"]'
+    );
+    const primaryFileName = primaryFileNameInput?.value || autoFileName;
+
+    const formData = new FormData();
+    formData.set("file", file);
+    formData.set("primaryFileName", primaryFileName);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Upload failed");
+      }
+
+      const data = await res.json();
+      setBundleUrl(data.url);
+      setBundleManifest(data.manifest);
+      setBundleContent(data.primaryFileContent ?? "");
+      setUploadedZipName(file.name);
+      toast.success(
+        `Uploaded ${file.name} — ${data.manifest.fileCount} files, ${formatBytes(data.manifest.totalSize)}`
+      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
+      toast.error(message);
+    } finally {
+      setUploadingZip(false);
+    }
+  }
+
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
@@ -136,70 +209,212 @@ export function AssetForm({
 
   return (
     <form ref={formRef} action={handleSubmit} className="space-y-8 max-w-3xl">
-      {/* File Upload Drop Zone */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          const file = e.dataTransfer.files[0];
-          if (file) handleFileUpload(file);
-        }}
-        onClick={() => fileInputRef.current?.click()}
-        className={cn(
-          "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
-          isDragging
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-muted-foreground/50"
-        )}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".md"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleFileUpload(file);
-            e.target.value = "";
-          }}
-        />
-        {uploadedFile ? (
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm font-medium">{uploadedFile}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
-              }}
-            >
-              Replace
-            </Button>
-          </div>
-        ) : (
-          <>
-            <Upload className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Drop a <span className="font-mono">.md</span> file here, or click
-              to browse
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Fields will be auto-filled from the file content
-            </p>
-          </>
-        )}
+      {/* Storage Type Selector */}
+      <div className="space-y-2">
+        <Label>Storage Type</Label>
+        <div className="flex gap-4">
+          {(["INLINE", "BUNDLE"] as const).map((value) => (
+            <label key={value} className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="storageType"
+                value={value}
+                checked={storageType === value}
+                onChange={() => setStorageType(value)}
+                className="mt-0.5"
+              />
+              <div>
+                <span className="font-medium">
+                  {value === "INLINE" ? "Inline" : "Bundle (.zip)"}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {value === "INLINE"
+                    ? "Single file — paste or upload a .md file"
+                    : "Multi-file — upload a .zip archive"}
+                </p>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
+
+      {/* File Upload Drop Zone (Inline) */}
+      {!isBundle && (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileUpload(file);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
+            isDragging
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25 hover:border-muted-foreground/50"
+          )}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+              e.target.value = "";
+            }}
+          />
+          {uploadedFile ? (
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-medium">{uploadedFile}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+              >
+                Replace
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Drop a <span className="font-mono">.md</span> file here, or click
+                to browse
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Fields will be auto-filled from the file content
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Zip Upload Drop Zone (Bundle) */}
+      {isBundle && (
+        <>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files[0];
+              if (file) handleZipUpload(file);
+            }}
+            onClick={() => !uploadingZip && zipInputRef.current?.click()}
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
+              uploadingZip && "pointer-events-none opacity-60",
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/25 hover:border-muted-foreground/50"
+            )}
+          >
+            <input
+              ref={zipInputRef}
+              type="file"
+              accept=".zip"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleZipUpload(file);
+                e.target.value = "";
+              }}
+            />
+            {uploadingZip ? (
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Uploading and parsing...
+                </span>
+              </div>
+            ) : uploadedZipName ? (
+              <div className="flex items-center gap-3">
+                <Package className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">{uploadedZipName}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    zipInputRef.current?.click();
+                  }}
+                >
+                  Replace
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Package className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Drop a <span className="font-mono">.zip</span> file here, or
+                  click to browse
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Maximum {MAX_BUNDLE_SIZE_MB} MB. The primary file will be
+                  extracted for preview.
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Bundle manifest summary */}
+          {bundleManifest && (
+            <div className="rounded-md border p-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Bundle Contents</span>
+                <span className="text-muted-foreground">
+                  {bundleManifest.fileCount} files,{" "}
+                  {formatBytes(bundleManifest.totalSize)}
+                </span>
+              </div>
+              <div className="max-h-40 overflow-y-auto space-y-0.5">
+                {bundleManifest.files.map((f) => (
+                  <div
+                    key={f.path}
+                    className="flex items-center justify-between text-xs font-mono text-muted-foreground"
+                  >
+                    <span className="truncate mr-3">{f.path}</span>
+                    <span className="shrink-0">{formatBytes(f.size)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Hidden inputs for bundle data */}
+          <input type="hidden" name="bundleUrl" value={bundleUrl} />
+          <input
+            type="hidden"
+            name="bundleManifest"
+            value={bundleManifest ? JSON.stringify(bundleManifest) : ""}
+          />
+          <input type="hidden" name="content" value={bundleContent} />
+        </>
+      )}
 
       {/* Name */}
       <div className="space-y-2">
@@ -407,19 +622,21 @@ export function AssetForm({
 
       <Separator />
 
-      {/* Content */}
-      <div className="space-y-2">
-        <Label htmlFor="content">Content</Label>
-        <Textarea
-          key={`content-${fieldKey}`}
-          id="content"
-          name="content"
-          required
-          defaultValue={ev.content}
-          placeholder="Paste your skill/command/agent content here..."
-          className="min-h-[300px] font-mono text-sm"
-        />
-      </div>
+      {/* Content (inline only) */}
+      {!isBundle && (
+        <div className="space-y-2">
+          <Label htmlFor="content">Content</Label>
+          <Textarea
+            key={`content-${fieldKey}`}
+            id="content"
+            name="content"
+            required
+            defaultValue={ev.content}
+            placeholder="Paste your skill/command/agent content here..."
+            className="min-h-[300px] font-mono text-sm"
+          />
+        </div>
+      )}
 
       {/* Primary File Name */}
       <div className="space-y-2">
@@ -436,10 +653,15 @@ export function AssetForm({
           onChange={() => setFileNameTouched(true)}
           placeholder="e.g. SKILL.md"
         />
+        {isBundle && (
+          <p className="text-xs text-muted-foreground">
+            The primary file from the bundle to use for preview and search.
+          </p>
+        )}
       </div>
 
       {/* Submit */}
-      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+      <Button type="submit" disabled={pending || uploadingZip} className="w-full sm:w-auto">
         {pending ? "Saving..." : submitLabel}
       </Button>
     </form>

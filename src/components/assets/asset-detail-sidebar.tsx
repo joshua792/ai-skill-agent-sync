@@ -6,9 +6,10 @@ import {
   LICENSE_DESCRIPTIONS,
   INSTALL_SCOPE_LABELS,
   PLATFORM_LABELS,
+  STORAGE_TYPE_LABELS,
 } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
-import { Download, GitFork, Calendar, Tag } from "lucide-react";
+import { Download, GitFork, Calendar, Tag, Package } from "lucide-react";
 
 interface AssetDetailSidebarProps {
   asset: {
@@ -16,6 +17,7 @@ interface AssetDetailSidebarProps {
     tags: string[];
     license: string;
     installScope: string;
+    storageType: string;
     currentVersion: string;
     downloadCount: number;
     forkCount: number;
@@ -74,6 +76,17 @@ export function AssetDetailSidebar({ asset }: AssetDetailSidebarProps) {
         <p className="text-sm">
           {INSTALL_SCOPE_LABELS[asset.installScope] ?? asset.installScope}
         </p>
+      </div>
+
+      {/* Storage Type */}
+      <div>
+        <p className="text-xs text-muted-foreground mb-1">Storage</p>
+        <div className="flex items-center gap-1.5 text-sm">
+          {asset.storageType === "BUNDLE" && (
+            <Package className="size-3 text-muted-foreground" />
+          )}
+          {STORAGE_TYPE_LABELS[asset.storageType] ?? asset.storageType}
+        </div>
       </div>
       <Separator />
 

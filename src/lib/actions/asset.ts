@@ -52,6 +52,11 @@ type ActionResult = { success: true } | { success: false; error: string };
 export async function createAsset(formData: FormData): Promise<never> {
   const userId = await requireUser();
 
+  const storageType = (formData.get("storageType") as string) ?? "INLINE";
+  const bundleUrl = formData.get("bundleUrl") as string | null;
+  const bundleManifestRaw = formData.get("bundleManifest") as string | null;
+  const bundleManifest = bundleManifestRaw ? JSON.parse(bundleManifestRaw) : undefined;
+
   const raw = {
     name: formData.get("name"),
     description: formData.get("description"),
@@ -63,8 +68,11 @@ export async function createAsset(formData: FormData): Promise<never> {
     visibility: formData.get("visibility"),
     license: formData.get("license"),
     installScope: formData.get("installScope"),
-    content: formData.get("content"),
+    storageType,
+    content: formData.get("content") || undefined,
     primaryFileName: formData.get("primaryFileName"),
+    bundleUrl: bundleUrl || undefined,
+    bundleManifest,
   };
 
   const parsed = createAssetSchema.safeParse(raw);
@@ -90,8 +98,11 @@ export async function createAsset(formData: FormData): Promise<never> {
       visibility: data.visibility,
       license: data.license,
       installScope: data.installScope,
-      content: data.content,
+      storageType: data.storageType,
+      content: data.content ?? null,
       primaryFileName: data.primaryFileName,
+      bundleUrl: data.bundleUrl ?? null,
+      bundleManifest: data.bundleManifest ?? undefined,
       authorId: userId,
     },
   });
@@ -116,6 +127,11 @@ export async function updateAsset(
     return { success: false, error: "Cannot update a deleted asset" };
   }
 
+  const storageType = (formData.get("storageType") as string) || undefined;
+  const bundleUrl = (formData.get("bundleUrl") as string) || undefined;
+  const bundleManifestRaw = formData.get("bundleManifest") as string | null;
+  const bundleManifest = bundleManifestRaw ? JSON.parse(bundleManifestRaw) : undefined;
+
   const raw = {
     name: formData.get("name") || undefined,
     description: formData.get("description") || undefined,
@@ -130,8 +146,11 @@ export async function updateAsset(
     visibility: formData.get("visibility") || undefined,
     license: formData.get("license") || undefined,
     installScope: formData.get("installScope") || undefined,
+    storageType,
     content: formData.get("content") || undefined,
     primaryFileName: formData.get("primaryFileName") || undefined,
+    bundleUrl,
+    bundleManifest,
   };
 
   const parsed = updateAssetSchema.safeParse(raw);
@@ -225,6 +244,7 @@ export async function publishVersion(
         version: parsed.data.version,
         changelog: parsed.data.changelog,
         content: asset.content,
+        bundleUrl: asset.bundleUrl,
       },
     }),
     db.asset.update({
@@ -309,6 +329,8 @@ export async function forkAsset(assetId: string): Promise<ForkResult> {
         installScope: source.installScope,
         content: source.content,
         primaryFileName: source.primaryFileName,
+        bundleUrl: source.bundleUrl,
+        bundleManifest: source.bundleManifest ?? undefined,
         visibility: "PRIVATE",
         currentVersion: "1.0.0",
         forkedFromId: source.id,

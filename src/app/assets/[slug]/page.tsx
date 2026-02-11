@@ -74,6 +74,8 @@ export default async function AssetDetailPage({ params }: Props) {
           <AssetDetailContent
             content={asset.content}
             fileName={asset.primaryFileName}
+            storageType={asset.storageType}
+            bundleManifest={asset.bundleManifest as import("@/lib/types/bundle").BundleManifest | null}
           />
 
           <AssetVersionHistory
@@ -83,7 +85,10 @@ export default async function AssetDetailPage({ params }: Props) {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <AssetActions asset={asset} isOwner={isOwner} />
+          <AssetActions
+            asset={asset}
+            isOwner={isOwner}
+          />
           <AssetDetailSidebar asset={asset} />
         </div>
       </div>

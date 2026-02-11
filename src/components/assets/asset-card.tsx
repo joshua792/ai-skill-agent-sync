@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { AssetTypeBadge } from "./asset-type-badge";
 import { PlatformBadge } from "./platform-badge";
 import { VisibilityBadge } from "./visibility-badge";
-import { Download, GitFork } from "lucide-react";
+import { Download, GitFork, Package } from "lucide-react";
 import { LICENSE_LABELS } from "@/lib/constants";
 
 interface AssetCardProps {
@@ -26,6 +26,7 @@ interface AssetCardProps {
     forkCount: number;
     forkedFromId?: string | null;
     license: string;
+    storageType?: string;
     updatedAt: Date;
     author?: {
       username: string;
@@ -55,6 +56,12 @@ export function AssetCard({
             {asset.license !== "UNLICENSED" && (
               <Badge variant="outline" className="text-xs">
                 {LICENSE_LABELS[asset.license] ?? asset.license}
+              </Badge>
+            )}
+            {asset.storageType === "BUNDLE" && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Package className="size-2.5" />
+                Bundle
               </Badge>
             )}
           </div>
