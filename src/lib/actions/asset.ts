@@ -16,6 +16,21 @@ import {
 async function requireUser() {
   const user = await currentUser();
   if (!user) throw new Error("Unauthorized");
+
+  // Ensure user record exists in DB (webhook may not have fired yet)
+  await db.user.upsert({
+    where: { id: user.id },
+    create: {
+      id: user.id,
+      username: user.username ?? user.id,
+      displayName:
+        [user.firstName, user.lastName].filter(Boolean).join(" ") || null,
+      avatarUrl: user.imageUrl,
+      email: user.emailAddresses?.[0]?.emailAddress ?? "",
+    },
+    update: {},
+  });
+
   return user.id;
 }
 
