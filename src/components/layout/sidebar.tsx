@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Monitor, Plus, Settings } from "lucide-react";
+import { LayoutDashboard, Monitor, Plus, Settings, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +16,11 @@ const sidebarItems = [
     title: "Machines",
     href: "/dashboard/machines",
     icon: Monitor,
+  },
+  {
+    title: "Analytics",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
   },
   {
     title: "Settings",

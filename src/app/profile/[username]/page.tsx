@@ -13,14 +13,25 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://assetvault.dev";
   const user = await db.user.findUnique({
     where: { username },
-    select: { displayName: true, username: true },
+    select: { displayName: true, username: true, bio: true },
   });
   if (!user) return { title: "User Not Found" };
+
+  const name = user.displayName ?? `@${user.username}`;
+  const description =
+    user.bio ?? `Public profile of ${name} on AssetVault`;
+  const url = `${baseUrl}/profile/${username}`;
+
   return {
-    title: user.displayName ?? `@${user.username}`,
-    description: `Public profile of ${user.displayName ?? user.username}`,
+    title: name,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title: name, description, url, type: "profile" },
+    twitter: { card: "summary", title: name, description },
   };
 }
 
@@ -52,7 +63,7 @@ export default async function ProfilePage({ params }: Props) {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Profile Header */}
-      <div className="flex items-start gap-6 mb-8">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8 text-center sm:text-left">
         <Avatar className="size-20">
           <AvatarFallback className="text-2xl">
             {(user.displayName ?? user.username).charAt(0).toUpperCase()}
@@ -68,7 +79,7 @@ export default async function ProfilePage({ params }: Props) {
               {user.bio}
             </p>
           )}
-          <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Package className="size-3.5" />
               {user.assets.length} public asset{user.assets.length !== 1 && "s"}

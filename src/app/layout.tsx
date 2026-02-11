@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/sonner";
+import { CommandPalette } from "@/components/command-palette";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,12 +19,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://assetvault.dev"
+  ),
   title: {
     default: "AssetVault",
     template: "%s | AssetVault",
   },
   description:
     "Registry, sync tool, and marketplace for AI workflow assets — Skills, Agents, and Commands.",
+  openGraph: {
+    type: "website",
+    siteName: "AssetVault",
+    title: "AssetVault",
+    description:
+      "Registry, sync tool, and marketplace for AI workflow assets.",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
@@ -46,6 +60,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
           <Toaster />
+          <CommandPalette />
         </ThemeProvider>
       </body>
     </html>

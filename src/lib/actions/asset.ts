@@ -2,14 +2,20 @@
 
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import slugify from "slugify";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   createAssetSchema,
   updateAssetSchema,
   publishVersionSchema,
 } from "@/lib/validations/asset";
+
+// ─── Rate Limiters ────────────────────────────────────
+
+const createLimiter = rateLimit({ interval: 5 * 60_000, limit: 10 });
+const downloadLimiter = rateLimit({ interval: 60_000, limit: 30 });
+const forkLimiter = rateLimit({ interval: 5 * 60_000, limit: 5 });
 
 // ─── Helpers ───────────────────────────────────────────
 
@@ -45,12 +51,19 @@ async function generateUniqueSlug(name: string): Promise<string> {
   return slug;
 }
 
-type ActionResult = { success: true } | { success: false; error: string };
+type ActionResult =
+  | { success: true; redirect?: string }
+  | { success: false; error: string };
 
 // ─── createAsset ───────────────────────────────────────
 
-export async function createAsset(formData: FormData): Promise<never> {
+export async function createAsset(formData: FormData): Promise<ActionResult> {
   const userId = await requireUser();
+
+  const { success: withinLimit } = createLimiter.check(userId);
+  if (!withinLimit) {
+    throw new Error("Rate limit exceeded. Please try again later.");
+  }
 
   const storageType = (formData.get("storageType") as string) ?? "INLINE";
   const bundleUrl = formData.get("bundleUrl") as string | null;
@@ -108,7 +121,7 @@ export async function createAsset(formData: FormData): Promise<never> {
   });
 
   revalidatePath("/dashboard");
-  redirect(`/assets/${slug}`);
+  return { success: true, redirect: `/assets/${slug}` };
 }
 
 // ─── updateAsset ───────────────────────────────────────
@@ -175,7 +188,8 @@ export async function updateAsset(
   revalidatePath(`/assets/${asset.slug}`);
 
   if (updateData.slug && updateData.slug !== asset.slug) {
-    redirect(`/assets/${updateData.slug}`);
+    revalidatePath(`/assets/${updated.slug}`);
+    return { success: true, redirect: `/assets/${updateData.slug}` };
   }
 
   revalidatePath(`/assets/${updated.slug}`);
@@ -265,6 +279,12 @@ export async function downloadAsset(
 ): Promise<ActionResult> {
   const user = await currentUser();
 
+  const dlKey = user?.id ?? `anon-${assetId}`;
+  const { success: withinLimit } = downloadLimiter.check(dlKey);
+  if (!withinLimit) {
+    return { success: false, error: "Rate limit exceeded. Please try again later." };
+  }
+
   const asset = await db.asset.findUnique({ where: { id: assetId } });
   if (!asset) {
     return { success: false, error: "Asset not found" };
@@ -296,6 +316,11 @@ type ForkResult =
 
 export async function forkAsset(assetId: string): Promise<ForkResult> {
   const userId = await requireUser();
+
+  const { success: withinLimit } = forkLimiter.check(userId);
+  if (!withinLimit) {
+    return { success: false, error: "Rate limit exceeded. Please try again later." };
+  }
 
   const source = await db.asset.findUnique({ where: { id: assetId } });
   if (!source || source.deletedAt) {

@@ -14,12 +14,40 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://assetvault.dev";
   const asset = await db.asset.findUnique({
     where: { slug },
-    select: { name: true, description: true },
+    select: {
+      name: true,
+      description: true,
+      type: true,
+      primaryPlatform: true,
+      author: { select: { displayName: true, username: true } },
+    },
   });
   if (!asset) return { title: "Asset Not Found" };
-  return { title: asset.name, description: asset.description };
+
+  const title = asset.name;
+  const description = asset.description;
+  const url = `${baseUrl}/assets/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "article",
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+  };
 }
 
 export default async function AssetDetailPage({ params }: Props) {
@@ -55,7 +83,31 @@ export default async function AssetDetailPage({ params }: Props) {
 
   if (asset.visibility === "PRIVATE" && !isOwner) notFound();
 
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://assetvault.dev";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    name: asset.name,
+    description: asset.description,
+    author: {
+      "@type": "Person",
+      name: asset.author.displayName ?? asset.author.username,
+      url: `${baseUrl}/profile/${asset.author.username}`,
+    },
+    version: asset.currentVersion,
+    license: asset.license,
+    dateCreated: asset.createdAt,
+    dateModified: asset.updatedAt,
+    url: `${baseUrl}/assets/${asset.slug}`,
+  };
+
   return (
+    <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
     <div className="container mx-auto px-4 py-8">
       <AssetDetailHeader asset={asset} />
 
@@ -93,5 +145,6 @@ export default async function AssetDetailPage({ params }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }

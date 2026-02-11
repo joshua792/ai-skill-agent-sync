@@ -55,7 +55,7 @@ export function ExploreFilters() {
         defaultValue={searchParams.get("type") ?? "ALL"}
         onValueChange={(v) => updateParams("type", v)}
       >
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px]">
           <SelectValue placeholder="Type" />
         </SelectTrigger>
         <SelectContent>
@@ -71,7 +71,7 @@ export function ExploreFilters() {
         defaultValue={searchParams.get("platform") ?? "ALL"}
         onValueChange={(v) => updateParams("platform", v)}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-full sm:w-[160px]">
           <SelectValue placeholder="Platform" />
         </SelectTrigger>
         <SelectContent>
@@ -87,7 +87,7 @@ export function ExploreFilters() {
         defaultValue={searchParams.get("category") ?? "ALL"}
         onValueChange={(v) => updateParams("category", v)}
       >
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-full sm:w-[180px]">
           <SelectValue placeholder="Category" />
         </SelectTrigger>
         <SelectContent>

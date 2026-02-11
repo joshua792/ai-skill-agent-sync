@@ -4,13 +4,23 @@ import { put } from "@vercel/blob";
 import JSZip from "jszip";
 import type { BundleManifest } from "@/lib/types/bundle";
 import { MAX_BUNDLE_SIZE_MB } from "@/lib/constants";
+import { rateLimit } from "@/lib/rate-limit";
 
 const MAX_BYTES = MAX_BUNDLE_SIZE_MB * 1024 * 1024;
+const uploadLimiter = rateLimit({ interval: 15 * 60_000, limit: 10 });
 
 export async function POST(request: Request) {
   const user = await currentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { success } = uploadLimiter.check(user.id);
+  if (!success) {
+    return NextResponse.json(
+      { error: "Too many uploads. Try again later." },
+      { status: 429 }
+    );
   }
 
   const formData = await request.formData();

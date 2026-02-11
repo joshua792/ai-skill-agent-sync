@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Upload, FileText, Package, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ import { cn } from "@/lib/utils";
 import type { BundleManifest } from "@/lib/types/bundle";
 
 interface AssetFormProps {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | { success: boolean; redirect?: string }>;
   defaultValues?: {
     name?: string;
     description?: string;
@@ -58,6 +59,7 @@ export function AssetForm({
   defaultValues = {},
   submitLabel = "Create Asset",
 }: AssetFormProps) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
@@ -196,8 +198,13 @@ export function AssetForm({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await action(formData);
+      const result = await action(formData);
       toast.success("Asset saved successfully!");
+      if (result && typeof result === "object" && "redirect" in result && result.redirect) {
+        router.push(result.redirect);
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Something went wrong";

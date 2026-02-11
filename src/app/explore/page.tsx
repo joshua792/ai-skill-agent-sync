@@ -8,6 +8,13 @@ import type { Prisma } from "@/generated/prisma/client";
 
 export const metadata: Metadata = {
   title: "Explore",
+  description:
+    "Discover and browse public AI workflow assets — Skills, Agents, and Commands.",
+  openGraph: {
+    title: "Explore Assets",
+    description:
+      "Discover and browse public AI workflow assets on AssetVault.",
+  },
 };
 
 interface Props {
