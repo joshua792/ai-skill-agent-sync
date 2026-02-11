@@ -1,0 +1,195 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum AssetType {
+  SKILL
+  COMMAND
+  AGENT
+}
+
+enum Platform {
+  CLAUDE_CODE
+  GEMINI_CLI
+  CHATGPT
+  CURSOR
+  WINDSURF
+  AIDER
+  OTHER
+}
+
+enum Category {
+  CODE_GENERATION
+  CODE_REVIEW
+  DOCUMENTATION
+  TESTING
+  DEVOPS
+  DATA_ANALYSIS
+  WRITING
+  RESEARCH
+  PRODUCTIVITY
+  DESIGN
+  DOMAIN_SPECIFIC
+  OTHER
+}
+
+enum Visibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+enum License {
+  MIT
+  APACHE_2
+  GPL_3
+  BSD_3
+  CC_BY_4
+  CC_BY_SA_4
+  UNLICENSED
+  CUSTOM
+}
+
+enum StorageType {
+  INLINE
+  BUNDLE
+}
+
+enum InstallScope {
+  USER
+  PROJECT
+}
+
+// ─── Models ──────────────────────────────────────────────────────────
+
+model User {
+  id          String   @id // Clerk user ID
+  username    String   @unique
+  displayName String?
+  avatarUrl   String?
+  email       String   @unique
+  bio         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assets   Asset[]
+  machines UserMachine[]
+  downloads Download[]
+
+  @@map("users")
+}
+
+model Asset {
+  id                  String      @id @default(cuid())
+  slug                String      @unique
+  name                String
+  description         String      @db.VarChar(280)
+  longDescription     String?     @db.Text
+  type                AssetType
+  primaryPlatform     Platform
+  compatiblePlatforms Platform[]
+  category            Category
+  tags                String[]
+  visibility          Visibility  @default(PRIVATE)
+  license             License     @default(UNLICENSED)
+  licenseText         String?     @db.Text
+  storageType         StorageType  @default(INLINE)
+  installScope        InstallScope @default(PROJECT)
+  content             String?     @db.Text
+  bundleUrl           String?
+  bundleManifest      Json?
+  primaryFileName     String      @default("README.md")
+  currentVersion      String      @default("1.0.0")
+  downloadCount       Int         @default(0)
+  forkCount           Int         @default(0)
+
+  authorId    String
+  author      User   @relation(fields: [authorId], references: [id])
+
+  forkedFromId String?
+  forkedFrom   Asset?  @relation("AssetForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
+  forks        Asset[] @relation("AssetForks")
+
+  versions  AssetVersion[]
+  downloads Download[]
+  syncStates MachineSyncState[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([type])
+  @@index([category])
+  @@index([primaryPlatform])
+  @@index([visibility])
+  @@index([deletedAt])
+  @@map("assets")
+}
+
+model AssetVersion {
+  id        String   @id @default(cuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  version   String
+  changelog String   @db.Text
+  content   String?  @db.Text
+  bundleUrl String?
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+  @@map("asset_versions")
+}
+
+model Download {
+  id        String   @id @default(cuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  version   String
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+  @@index([userId])
+  @@map("downloads")
+}
+
+model UserMachine {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  machineIdentifier String
+  lastSyncAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  syncStates MachineSyncState[]
+
+  @@unique([userId, machineIdentifier])
+  @@index([userId])
+  @@map("user_machines")
+}
+
+model MachineSyncState {
+  id            String      @id @default(cuid())
+  machineId     String
+  machine       UserMachine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  assetId       String
+  asset         Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  syncedVersion String
+  syncedAt      DateTime    @default(now())
+
+  @@unique([machineId, assetId])
+  @@index([machineId])
+  @@index([assetId])
+  @@map("machine_sync_states")
+}
