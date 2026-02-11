@@ -4,7 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pencil, Trash2, GitFork, Copy, Upload } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  GitFork,
+  Copy,
+  Upload,
+  Download,
+  Share2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,13 +26,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { deleteAsset, publishVersion } from "@/lib/actions/asset";
+import {
+  deleteAsset,
+  publishVersion,
+  downloadAsset,
+} from "@/lib/actions/asset";
 
 interface AssetActionsProps {
   asset: {
     id: string;
     slug: string;
     content: string | null;
+    currentVersion: string;
+    visibility: string;
   };
   isOwner: boolean;
 }
@@ -35,6 +49,7 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   async function handleDelete() {
     setDeleting(true);
@@ -56,6 +71,35 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
     }
   }
 
+  async function handleDownload() {
+    setDownloading(true);
+    if (asset.content) {
+      // Create a file download
+      const blob = new Blob([asset.content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = asset.slug + ".md";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Track the download
+      const result = await downloadAsset(asset.id, asset.currentVersion);
+      if (result.success) {
+        toast.success("Asset downloaded!");
+      }
+    }
+    setDownloading(false);
+  }
+
+  async function handleShare() {
+    const url = `${window.location.origin}/assets/${asset.slug}`;
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied to clipboard!");
+  }
+
   async function handlePublishVersion(formData: FormData) {
     setPublishing(true);
     formData.set("assetId", asset.id);
@@ -72,8 +116,44 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Download + Share (always visible for non-private) */}
+      <Button
+        variant="default"
+        className="w-full gap-2"
+        onClick={handleDownload}
+        disabled={downloading || !asset.content}
+      >
+        <Download className="size-3.5" />
+        {downloading ? "Downloading..." : "Download"}
+      </Button>
+
+      {asset.visibility !== "PRIVATE" && (
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={handleShare}
+        >
+          <Share2 className="size-3.5" /> Share Link
+        </Button>
+      )}
+
+      <Button
+        variant="outline"
+        className="w-full gap-2"
+        onClick={handleCopyContent}
+        disabled={!asset.content}
+      >
+        <Copy className="size-3.5" /> Copy Content
+      </Button>
+
+      <Button variant="outline" className="w-full gap-2" disabled>
+        <GitFork className="size-3.5" /> Fork (coming soon)
+      </Button>
+
       {isOwner && (
         <>
+          <div className="border-t my-2" />
+
           <Link href={`/dashboard/assets/${asset.slug}/edit`}>
             <Button variant="outline" className="w-full gap-2">
               <Pencil className="size-3.5" /> Edit
@@ -156,18 +236,6 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
           </Dialog>
         </>
       )}
-
-      {/* Always-visible actions */}
-      <Button
-        variant="outline"
-        className="w-full gap-2"
-        onClick={handleCopyContent}
-      >
-        <Copy className="size-3.5" /> Copy Content
-      </Button>
-      <Button variant="outline" className="w-full gap-2" disabled>
-        <GitFork className="size-3.5" /> Fork (coming soon)
-      </Button>
     </div>
   );
 }

@@ -221,3 +221,34 @@ export async function publishVersion(
   revalidatePath(`/assets/${asset.slug}`);
   return { success: true };
 }
+
+// ─── downloadAsset ─────────────────────────────────────
+
+export async function downloadAsset(
+  assetId: string,
+  version: string
+): Promise<ActionResult> {
+  const user = await currentUser();
+
+  const asset = await db.asset.findUnique({ where: { id: assetId } });
+  if (!asset) {
+    return { success: false, error: "Asset not found" };
+  }
+
+  await db.$transaction([
+    db.download.create({
+      data: {
+        assetId: asset.id,
+        userId: user?.id ?? null,
+        version,
+      },
+    }),
+    db.asset.update({
+      where: { id: asset.id },
+      data: { downloadCount: { increment: 1 } },
+    }),
+  ]);
+
+  revalidatePath(`/assets/${asset.slug}`);
+  return { success: true };
+}
