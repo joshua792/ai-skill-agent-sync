@@ -140,9 +140,12 @@ describe("FormData fields ↔ schema keys", () => {
     const formDataKeys = [
       "name", "description", "type", "primaryPlatform",
       "compatiblePlatforms", "category", "tags", "visibility",
-      "license", "installScope", "content", "primaryFileName",
+      "license", "installScope", "storageType", "content",
+      "primaryFileName", "bundleUrl", "bundleManifest",
     ];
-    const schemaKeys = Object.keys(createAssetSchema.shape);
+    // createAssetSchema uses .refine(), so access the inner schema's shape
+    const inner = (createAssetSchema as any)._def?.schema ?? createAssetSchema;
+    const schemaKeys = Object.keys(inner.shape);
     expect(formDataKeys.sort()).toEqual(schemaKeys.sort());
   });
 

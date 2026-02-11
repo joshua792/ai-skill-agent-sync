@@ -200,15 +200,48 @@ describe("createAssetSchema", () => {
     });
   });
 
-  // ── Content ──
+  // ── Content (inline requires content via .refine()) ──
   describe("content", () => {
-    it("rejects empty string", () => {
-      const result = createAssetSchema.safeParse(validAssetInput({ content: "" }));
+    it("rejects empty content for INLINE storageType", () => {
+      const result = createAssetSchema.safeParse(validAssetInput({ content: "", storageType: "INLINE" }));
       expect(result.success).toBe(false);
     });
 
-    it("accepts single character", () => {
-      const result = createAssetSchema.safeParse(validAssetInput({ content: "x" }));
+    it("accepts content for INLINE storageType", () => {
+      const result = createAssetSchema.safeParse(validAssetInput({ content: "x", storageType: "INLINE" }));
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts empty content for BUNDLE storageType with bundleUrl", () => {
+      const result = createAssetSchema.safeParse(validAssetInput({
+        content: "",
+        storageType: "BUNDLE",
+        bundleUrl: "https://example.com/bundle.zip",
+      }));
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects BUNDLE without bundleUrl", () => {
+      const result = createAssetSchema.safeParse(validAssetInput({
+        content: "",
+        storageType: "BUNDLE",
+      }));
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // ── StorageType enum ──
+  describe("storageType", () => {
+    it.each(["INLINE", "BUNDLE"])("accepts %s", (storageType) => {
+      const input = storageType === "BUNDLE"
+        ? validAssetInput({ storageType, bundleUrl: "https://example.com/bundle.zip" })
+        : validAssetInput({ storageType });
+      const result = createAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("defaults to INLINE when omitted", () => {
+      const result = createAssetSchema.safeParse(validAssetInput());
       expect(result.success).toBe(true);
     });
   });
