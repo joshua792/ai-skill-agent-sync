@@ -10,6 +10,7 @@ import { AssetActions } from "@/components/assets/asset-actions";
 
 interface Props {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ token?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -50,8 +51,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function AssetDetailPage({ params }: Props) {
+export default async function AssetDetailPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const { token } = await searchParams;
 
   const asset = await db.asset.findUnique({
     where: { slug },
@@ -82,6 +84,23 @@ export default async function AssetDetailPage({ params }: Props) {
   const isOwner = user?.id === asset.authorId;
 
   if (asset.visibility === "PRIVATE" && !isOwner) notFound();
+
+  // SHARED access control: owner + explicitly shared users only
+  let isSharedAccess = false;
+  if (asset.visibility === "SHARED" && !isOwner) {
+    const userEmail = user?.emailAddresses?.[0]?.emailAddress;
+    const hasAccess = await db.assetShare.findFirst({
+      where: {
+        assetId: asset.id,
+        OR: [
+          ...(token ? [{ token }] : []),
+          ...(userEmail ? [{ email: userEmail.toLowerCase() }] : []),
+        ],
+      },
+    });
+    if (!hasAccess) notFound();
+    isSharedAccess = true;
+  }
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "https://assetvault.dev";
@@ -140,6 +159,7 @@ export default async function AssetDetailPage({ params }: Props) {
           <AssetActions
             asset={asset}
             isOwner={isOwner}
+            isSharedAccess={isSharedAccess}
           />
           <AssetDetailSidebar asset={asset} />
         </div>

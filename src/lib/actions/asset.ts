@@ -331,6 +331,10 @@ export async function forkAsset(assetId: string): Promise<ForkResult> {
     return { success: false, error: "Cannot fork a private asset" };
   }
 
+  if (source.visibility === "SHARED") {
+    return { success: false, error: "Cannot fork a shared asset" };
+  }
+
   if (source.authorId === userId) {
     return { success: false, error: "Cannot fork your own asset" };
   }

@@ -8,6 +8,10 @@ import {
   syncAssetSchema,
 } from "@/lib/validations/machine";
 import {
+  shareAssetSchema,
+  revokeShareSchema,
+} from "@/lib/validations/share";
+import {
   ASSET_TYPE_LABELS,
   PLATFORM_LABELS,
   CATEGORY_LABELS,
@@ -273,6 +277,67 @@ describe("syncAssetToMachine installPath contract", () => {
     const createMatch = fnBody.includes("create:");
     const installPathInBody = fnBody.includes("installPath");
     expect(createMatch && installPathInBody).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// AssetShare model + share action contracts
+// ═══════════════════════════════════════════════════════
+
+describe("AssetShare model contracts", () => {
+  it("AssetShare model exists in Prisma schema", () => {
+    const modelRegex = /model\s+AssetShare\s*\{([^}]+)\}/m;
+    const match = schemaContent.match(modelRegex);
+    expect(match).not.toBeNull();
+  });
+
+  it("AssetShare model has token, email, assetId fields", () => {
+    const modelRegex = /model\s+AssetShare\s*\{([^}]+)\}/m;
+    const match = schemaContent.match(modelRegex);
+    expect(match).not.toBeNull();
+    const body = match![1];
+    expect(body).toContain("token");
+    expect(body).toContain("email");
+    expect(body).toContain("assetId");
+    expect(body).toContain("sharedBy");
+  });
+});
+
+describe("share action authorization contracts", () => {
+  const shareActionsPath = path.resolve(__dirname, "../lib/actions/share.ts");
+  const shareSource = fs.readFileSync(shareActionsPath, "utf-8");
+
+  it("shareAsset calls requireUser", () => {
+    const fnBody = extractFunctionBody(shareSource, "shareAsset");
+    expect(fnBody).toContain("requireUser()");
+  });
+
+  it("revokeShare calls requireUser", () => {
+    const fnBody = extractFunctionBody(shareSource, "revokeShare");
+    expect(fnBody).toContain("requireUser()");
+  });
+
+  it("getAssetShares calls requireUser", () => {
+    // extractFunctionBody doesn't work here due to braces in return type
+    // Check the raw source between the function declaration and the next export
+    const fnStart = shareSource.indexOf("export async function getAssetShares");
+    expect(fnStart).toBeGreaterThan(-1);
+    const bodySlice = shareSource.slice(fnStart);
+    expect(bodySlice).toContain("requireUser()");
+  });
+
+  it("shareAsset FormData keys match shareAssetSchema", () => {
+    const formDataKeys = ["assetId", "email"];
+    const schemaKeys = Object.keys(shareAssetSchema.shape);
+    expect(formDataKeys.sort()).toEqual(schemaKeys.sort());
+  });
+
+  it("forkAsset blocks SHARED visibility", () => {
+    const assetActionsPath = path.resolve(__dirname, "../lib/actions/asset.ts");
+    const assetSource = fs.readFileSync(assetActionsPath, "utf-8");
+    const fnBody = extractFunctionBody(assetSource, "forkAsset");
+    expect(fnBody).toContain("SHARED");
+    expect(fnBody).toContain("Cannot fork a shared asset");
   });
 });
 

@@ -32,11 +32,13 @@ import {
   downloadAsset,
   forkAsset,
 } from "@/lib/actions/asset";
+import { ShareDialog } from "./share-dialog";
 
 interface AssetActionsProps {
   asset: {
     id: string;
     slug: string;
+    name: string;
     content: string | null;
     currentVersion: string;
     visibility: string;
@@ -44,9 +46,10 @@ interface AssetActionsProps {
     bundleUrl?: string | null;
   };
   isOwner: boolean;
+  isSharedAccess?: boolean;
 }
 
-export function AssetActions({ asset, isOwner }: AssetActionsProps) {
+export function AssetActions({ asset, isOwner, isSharedAccess }: AssetActionsProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
@@ -151,7 +154,7 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
         {downloading ? "Downloading..." : "Download"}
       </Button>
 
-      {asset.visibility !== "PRIVATE" && (
+      {asset.visibility !== "PRIVATE" && !isSharedAccess && (
         <Button
           variant="outline"
           className="w-full gap-2"
@@ -159,6 +162,11 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
         >
           <Share2 className="size-3.5" /> Share Link
         </Button>
+      )}
+
+      {/* Owner of SHARED asset: share by email */}
+      {isOwner && asset.visibility === "SHARED" && (
+        <ShareDialog assetId={asset.id} assetName={asset.name} />
       )}
 
       <Button
@@ -170,7 +178,7 @@ export function AssetActions({ asset, isOwner }: AssetActionsProps) {
         <Copy className="size-3.5" /> Copy Content
       </Button>
 
-      {!isOwner && (
+      {!isOwner && !isSharedAccess && (
         <Button
           variant="outline"
           className="w-full gap-2"

@@ -80,9 +80,10 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  assets   Asset[]
-  machines UserMachine[]
-  downloads Download[]
+  assets     Asset[]
+  machines   UserMachine[]
+  downloads  Download[]
+  sharesSent AssetShare[]
 
   @@map("users")
 }
@@ -118,9 +119,10 @@ model Asset {
   forkedFrom   Asset?  @relation("AssetForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
   forks        Asset[] @relation("AssetForks")
 
-  versions  AssetVersion[]
-  downloads Download[]
+  versions   AssetVersion[]
+  downloads  Download[]
   syncStates MachineSyncState[]
+  shares     AssetShare[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -193,4 +195,21 @@ model MachineSyncState {
   @@index([machineId])
   @@index([assetId])
   @@map("machine_sync_states")
+}
+
+model AssetShare {
+  id        String   @id @default(cuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  email     String
+  token     String   @unique @default(cuid())
+  sharedBy  String
+  sharer    User     @relation(fields: [sharedBy], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([assetId, email])
+  @@index([assetId])
+  @@index([email])
+  @@index([token])
+  @@map("asset_shares")
 }
