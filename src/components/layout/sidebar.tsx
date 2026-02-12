@@ -2,9 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Monitor, Plus, Settings, BarChart3 } from "lucide-react";
+import {
+  LayoutDashboard,
+  Monitor,
+  Plus,
+  Settings,
+  BarChart3,
+  ShieldCheck,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 const sidebarItems = [
   {
@@ -29,7 +37,11 @@ const sidebarItems = [
   },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isAdmin?: boolean;
+}
+
+export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -61,6 +73,25 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
+      {isAdmin && (
+        <>
+          <Separator className="my-4" />
+          <nav className="space-y-1">
+            <Link
+              href="/dashboard/admin"
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                pathname.startsWith("/dashboard/admin")
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin
+            </Link>
+          </nav>
+        </>
+      )}
     </aside>
   );
 }
