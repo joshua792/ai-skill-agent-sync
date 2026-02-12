@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       },
       update: {
         username: username ?? undefined,
-        displayName,
+        // displayName intentionally omitted — users can override it in Settings
         avatarUrl: image_url,
         email,
       },
