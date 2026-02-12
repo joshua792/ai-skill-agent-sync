@@ -18,6 +18,12 @@ vi.mock("slugify", () => ({
   default: vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, "-")),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimit: () => ({
+    check: () => ({ success: true, remaining: 99 }),
+  }),
+}));
+
 vi.mock("@/lib/db", () => ({
   db: {
     user: { upsert: vi.fn().mockResolvedValue({}), delete: vi.fn() },
@@ -174,6 +180,12 @@ describe("forkAsset", () => {
     mockDb.asset.findUnique.mockResolvedValue({ ...sampleAsset, visibility: "PRIVATE" });
     const result = await forkAsset("asset_1");
     expect(result).toEqual({ success: false, error: "Cannot fork a private asset" });
+  });
+
+  it("returns error when asset is shared", async () => {
+    mockDb.asset.findUnique.mockResolvedValue({ ...sampleAsset, visibility: "SHARED" });
+    const result = await forkAsset("asset_1");
+    expect(result).toEqual({ success: false, error: "Cannot fork a shared asset" });
   });
 
   it("returns error when forking own asset", async () => {
