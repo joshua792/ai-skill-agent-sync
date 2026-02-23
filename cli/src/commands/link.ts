@@ -101,7 +101,7 @@ export async function linkCommand(
   log.dim('Run `av sync` to download the latest version.');
 }
 
-export async function linkAllCommand(dir: string): Promise<void> {
+export async function linkAllCommand(dir: string, projectOverride?: string): Promise<void> {
   const config = requireConfig();
   const machineId = requireMachine(config);
   const client = new ApiClient(config.serverUrl, config.apiKey);
@@ -118,7 +118,10 @@ export async function linkAllCommand(dir: string): Promise<void> {
     process.exit(1);
   }
 
-  const projectName = inferProjectName(resolvedDir);
+  const projectName = projectOverride ?? inferProjectName(resolvedDir);
+  if (projectOverride) {
+    log.info(`Using project name override: "${projectOverride}"`);
+  }
   const { platform, type } = inferred;
 
   // Check if directory exists and has files

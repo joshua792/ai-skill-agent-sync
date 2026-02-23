@@ -9,13 +9,19 @@ import { pushCommand } from "./commands/push.js";
 import { pullCommand } from "./commands/pull.js";
 import { syncCommand } from "./commands/sync.js";
 import { watchCommand } from "./commands/watch.js";
+import { updateCommand } from "./commands/update.js";
+import { CLI_VERSION, getLocalCommitHash } from "./lib/cli-version.js";
+import { checkForUpdates } from "./lib/update-check.js";
+
+const commitHash = getLocalCommitHash();
+const versionString = commitHash ? `${CLI_VERSION} (${commitHash})` : CLI_VERSION;
 
 const program = new Command();
 
 program
   .name("av")
   .description("AssetVault CLI — sync AI skills, commands, and agents across machines")
-  .version("0.1.0");
+  .version(versionString);
 
 program
   .command("login")
@@ -38,7 +44,8 @@ program
   .command("link-all")
   .description("Scan a directory, create assets from files, and link them all")
   .argument("<dir>", "Directory to scan (e.g., .claude/skills)")
-  .action(linkAllCommand);
+  .option("--project <name>", "Override inferred project name (for cross-machine sync with different folder names)")
+  .action((dir: string, opts: { project?: string }) => linkAllCommand(dir, opts.project));
 
 program
   .command("unlink")
@@ -72,5 +79,17 @@ program
   .command("watch")
   .description("Start sync daemon — watch files and poll for updates")
   .action(watchCommand);
+
+program
+  .command("update")
+  .description("Update the CLI to the latest version from git")
+  .action(updateCommand);
+
+// After every command except update/login, check for available updates
+program.hook("postAction", (thisCommand) => {
+  const name = thisCommand.name();
+  if (["update", "login"].includes(name)) return;
+  checkForUpdates();
+});
 
 program.parse();
