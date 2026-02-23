@@ -179,9 +179,99 @@ export async function watchCommand(): Promise<void> {
     }
   }
 
-  // Start polling for server updates
+  // Scan for new files in linked directories and auto-link+push them
+  async function scanAndLinkNewFiles() {
+    const currentLinks = getAllLinks();
+    const linkedPaths = new Set(
+      currentLinks.map((e) => path.resolve(e.link.localPath))
+    );
+
+    // Collect unique directories from linked files
+    const dirs = new Set<string>();
+    for (const { link } of currentLinks) {
+      dirs.add(path.dirname(link.localPath));
+    }
+
+    const { inferTypeFromPath, inferProjectName } = await import(
+      "../lib/install-paths.js"
+    );
+
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
+
+      const inferred = inferTypeFromPath(dir);
+      if (!inferred) continue;
+
+      const { platform, type } = inferred;
+      const projectName = inferProjectName(dir);
+
+      const newFiles = fs.readdirSync(dir).filter((f) => {
+        const fullPath = path.join(dir, f);
+        return fs.statSync(fullPath).isFile() && !linkedPaths.has(fullPath);
+      });
+
+      for (const fileName of newFiles) {
+        const filePath = path.join(dir, fileName);
+        const content = fs.readFileSync(filePath, "utf-8");
+        const fileHash = hashContent(content);
+
+        const assetName = projectName
+          ? `${projectName} - ${fileName.replace(/\.[^.]+$/, "")}`
+          : fileName.replace(/\.[^.]+$/, "");
+
+        log.info(`[new] Creating asset: "${assetName}"`);
+        try {
+          const newAsset = await client.createAsset({
+            name: assetName,
+            content,
+            type: type as "SKILL" | "COMMAND" | "AGENT",
+            primaryPlatform: platform,
+            primaryFileName: fileName,
+            installScope: "PROJECT",
+            machineId,
+          });
+
+          const entry: LinkEntry = {
+            assetId: newAsset.id,
+            assetSlug: newAsset.slug,
+            localPath: filePath,
+            lastHash: fileHash,
+            lastSyncedVersion: newAsset.currentVersion,
+          };
+
+          // Add to project config
+          const pc = projectDir
+            ? readProjectConfig(projectDir) ?? { links: [] }
+            : null;
+          if (pc && projectDir) {
+            pc.links = pc.links.filter((l) => l.assetId !== newAsset.id);
+            pc.links.push(entry);
+            writeProjectConfig(projectDir, pc);
+          }
+
+          // Watch the new file
+          watcher.watch(filePath, () => pushLink(entry));
+          linkedPaths.add(filePath);
+
+          log.success(`[new] Linked "${newAsset.name}" → ${filePath}`);
+        } catch (err) {
+          log.error(
+            `[new] Failed: ${fileName}: ${err instanceof Error ? err.message : "Unknown"}`
+          );
+        }
+      }
+    }
+  }
+
+  // Combined poll: scan for new files then pull updates
+  async function pollCycle() {
+    await scanAndLinkNewFiles();
+    await pullAll();
+  }
+
+  // Start polling for server updates (also scans for new files)
   const pollIntervalMs = (config.syncInterval || 30) * 1000;
-  poller.start(pollIntervalMs, pullAll);
+  poller.start(pollIntervalMs, pollCycle);
 
   log.success(
     `Watching ${watcher.watchCount} file(s), polling every ${config.syncInterval || 30}s`
