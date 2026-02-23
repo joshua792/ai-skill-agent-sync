@@ -186,15 +186,21 @@ export async function watchCommand(): Promise<void> {
       currentLinks.map((e) => path.resolve(e.link.localPath))
     );
 
-    // Collect unique directories from linked files
-    const dirs = new Set<string>();
-    for (const { link } of currentLinks) {
-      dirs.add(path.dirname(link.localPath));
-    }
-
     const { inferTypeFromPath, inferProjectName } = await import(
       "../lib/install-paths.js"
     );
+
+    // Collect unique directories from linked files
+    // Include parent dirs to catch sibling subdirectory skills
+    const dirs = new Set<string>();
+    for (const { link } of currentLinks) {
+      const dir = path.dirname(link.localPath);
+      dirs.add(dir);
+      const parentDir = path.dirname(dir);
+      if (inferTypeFromPath(parentDir)) {
+        dirs.add(parentDir);
+      }
+    }
 
     for (const dir of dirs) {
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
@@ -205,19 +211,38 @@ export async function watchCommand(): Promise<void> {
       const { platform, type } = inferred;
       const projectName = inferProjectName(dir);
 
-      const newFiles = fs.readdirSync(dir).filter((f) => {
-        const fullPath = path.join(dir, f);
-        return fs.statSync(fullPath).isFile() && !linkedPaths.has(fullPath);
-      });
+      // Scan for direct files and subdirectory patterns (e.g., skills/deploy/SKILL.md)
+      const newFiles: string[] = [];
+      for (const entry of fs.readdirSync(dir)) {
+        const entryPath = path.join(dir, entry);
+        const stat = fs.statSync(entryPath);
+        if (stat.isFile() && !linkedPaths.has(entryPath)) {
+          newFiles.push(entry);
+        } else if (stat.isDirectory()) {
+          const subFiles = fs.readdirSync(entryPath).filter((f) => {
+            const subPath = path.join(entryPath, f);
+            return fs.statSync(subPath).isFile() && f.endsWith(".md") && !linkedPaths.has(subPath);
+          });
+          for (const subFile of subFiles) {
+            newFiles.push(path.join(entry, subFile));
+          }
+        }
+      }
 
       for (const fileName of newFiles) {
         const filePath = path.join(dir, fileName);
         const content = fs.readFileSync(filePath, "utf-8");
         const fileHash = hashContent(content);
 
-        const assetName = projectName
-          ? `${projectName} - ${fileName.replace(/\.[^.]+$/, "")}`
+        // For subdirectory skills (deploy/SKILL.md), use the subdir name as display name
+        const isSubdirFile = fileName.includes(path.sep) || fileName.includes("/");
+        const displayName = isSubdirFile
+          ? fileName.split(/[/\\]/)[0]
           : fileName.replace(/\.[^.]+$/, "");
+
+        const assetName = projectName
+          ? `${projectName} - ${displayName}`
+          : displayName;
 
         log.info(`[new] Creating asset: "${assetName}"`);
         try {

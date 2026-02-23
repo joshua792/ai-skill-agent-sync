@@ -125,10 +125,28 @@ export async function linkAllCommand(dir: string, projectOverride?: string): Pro
   const { platform, type } = inferred;
 
   // Check if directory exists and has files
+  // Supports both direct files (skills/my-skill.md) and subdirectory patterns (skills/deploy/SKILL.md)
   const dirExists = fs.existsSync(resolvedDir) && fs.statSync(resolvedDir).isDirectory();
-  const localFiles = dirExists
-    ? fs.readdirSync(resolvedDir).filter((f) => fs.statSync(path.join(resolvedDir, f)).isFile())
-    : [];
+  const localFiles: string[] = [];
+  if (dirExists) {
+    for (const entry of fs.readdirSync(resolvedDir)) {
+      const entryPath = path.join(resolvedDir, entry);
+      const stat = fs.statSync(entryPath);
+      if (stat.isFile()) {
+        localFiles.push(entry);
+      } else if (stat.isDirectory()) {
+        // Look for .md files inside subdirectories (e.g., skills/deploy/SKILL.md)
+        const subFiles = fs.readdirSync(entryPath).filter((f) => {
+          const subPath = path.join(entryPath, f);
+          return fs.statSync(subPath).isFile() && f.endsWith(".md");
+        });
+        for (const subFile of subFiles) {
+          // Store as relative path: "deploy/SKILL.md"
+          localFiles.push(path.join(entry, subFile));
+        }
+      }
+    }
+  }
 
   log.info(`Detected: platform=${platform}, type=${type}${projectName ? `, project=${projectName}` : ""}`);
 
@@ -198,6 +216,12 @@ export async function linkAllCommand(dir: string, projectOverride?: string): Pro
         if (assetContent.type === "BUNDLE") {
           log.warn(`  Skipping ${asset.name} (BUNDLE)`);
           continue;
+        }
+
+        // Ensure parent directory exists (for subdirectory patterns like deploy/SKILL.md)
+        const fileDir = path.dirname(filePath);
+        if (!fs.existsSync(fileDir)) {
+          fs.mkdirSync(fileDir, { recursive: true });
         }
 
         // Write file
@@ -275,14 +299,21 @@ export async function linkAllCommand(dir: string, projectOverride?: string): Pro
       continue;
     }
 
+    // For subdirectory skills (deploy/SKILL.md), use the subdir name as the display name
+    // For direct files (my-skill.md), use the filename without extension
+    const isSubdirFile = fileName.includes(path.sep) || fileName.includes("/");
+    const displayName = isSubdirFile
+      ? fileName.split(/[/\\]/)[0] // "deploy" from "deploy/SKILL.md"
+      : fileName.replace(/\.[^.]+$/, "");
+
     // Check if asset already exists on server (match by filename)
     let asset = existingByFile.get(fileName);
 
     if (!asset) {
       // Create asset on server
       const assetName = projectName
-        ? `${projectName} - ${fileName.replace(/\.[^.]+$/, "")}`
-        : fileName.replace(/\.[^.]+$/, "");
+        ? `${projectName} - ${displayName}`
+        : displayName;
 
       log.info(`  Creating asset: "${assetName}"`);
       try {
