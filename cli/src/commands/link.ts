@@ -13,7 +13,11 @@ import {
   writeProjectConfig,
 } from "../lib/project-config.js";
 import { hashContent } from "../lib/hash.js";
-import { getDefaultInstallSubdir } from "../lib/install-paths.js";
+import {
+  getDefaultInstallSubdir,
+  inferTypeFromPath,
+  inferProjectName,
+} from "../lib/install-paths.js";
 import * as log from "../lib/logger.js";
 
 export async function linkCommand(
@@ -95,6 +99,159 @@ export async function linkCommand(
   }
 
   log.dim('Run `av sync` to download the latest version.');
+}
+
+export async function linkAllCommand(dir: string): Promise<void> {
+  const config = requireConfig();
+  const machineId = requireMachine(config);
+  const client = new ApiClient(config.serverUrl, config.apiKey);
+
+  const resolvedDir = path.resolve(dir);
+
+  if (!fs.existsSync(resolvedDir) || !fs.statSync(resolvedDir).isDirectory()) {
+    log.error(`Directory not found: ${resolvedDir}`);
+    process.exit(1);
+  }
+
+  // Infer platform + type from the directory path
+  const inferred = inferTypeFromPath(resolvedDir);
+  if (!inferred) {
+    log.error(
+      `Could not infer asset type from path "${resolvedDir}".\n` +
+      `Supported directories: .claude/skills, .claude/commands, .claude/agents, .cursor/rules, .windsurf/rules, .aider`
+    );
+    process.exit(1);
+  }
+
+  const projectName = inferProjectName(resolvedDir);
+  const { platform, type } = inferred;
+
+  log.info(`Scanning ${resolvedDir}`);
+  log.info(`Detected: platform=${platform}, type=${type}${projectName ? `, project=${projectName}` : ""}`);
+
+  // Scan directory for files
+  const files = fs.readdirSync(resolvedDir).filter((f) => {
+    const fullPath = path.join(resolvedDir, f);
+    return fs.statSync(fullPath).isFile();
+  });
+
+  if (files.length === 0) {
+    log.warn("No files found in directory.");
+    return;
+  }
+
+  log.info(`Found ${files.length} file(s): ${files.join(", ")}`);
+
+  // Fetch existing assets to avoid duplicates
+  const { assets: existingAssets } = await client.syncManifest(machineId);
+  const existingByFile = new Map(
+    existingAssets.map((a) => [a.primaryFileName, a])
+  );
+
+  let created = 0;
+  let linked = 0;
+  let skipped = 0;
+
+  // Determine project root (parent of .claude/, .cursor/, etc.)
+  const normalized = resolvedDir.replace(/\\/g, "/");
+  const markers = [".claude/", ".cursor/", ".windsurf/", ".aider"];
+  let projectRoot = process.cwd();
+  for (const marker of markers) {
+    const idx = normalized.indexOf(marker);
+    if (idx > 0) {
+      projectRoot = normalized.substring(0, idx);
+      break;
+    }
+  }
+  const normalizedRoot = path.resolve(projectRoot);
+
+  const projectConfig = readProjectConfig(normalizedRoot) ?? { links: [] };
+
+  for (const fileName of files) {
+    const filePath = path.join(resolvedDir, fileName);
+    const content = fs.readFileSync(filePath, "utf-8");
+    const fileHash = hashContent(content);
+
+    // Check if already linked by path
+    const alreadyLinked = projectConfig.links.some(
+      (l) => path.resolve(l.localPath) === filePath
+    ) || config.userLinks.some(
+      (l) => path.resolve(l.localPath) === filePath
+    );
+
+    if (alreadyLinked) {
+      log.dim(`  Skipping ${fileName} (already linked)`);
+      skipped++;
+      continue;
+    }
+
+    // Check if asset already exists on server (match by filename)
+    let asset = existingByFile.get(fileName);
+
+    if (!asset) {
+      // Create asset on server
+      const assetName = projectName
+        ? `${projectName} - ${fileName.replace(/\.[^.]+$/, "")}`
+        : fileName.replace(/\.[^.]+$/, "");
+
+      log.info(`  Creating asset: "${assetName}"`);
+      try {
+        const newAsset = await client.createAsset({
+          name: assetName,
+          content,
+          type: type as "SKILL" | "COMMAND" | "AGENT",
+          primaryPlatform: platform,
+          primaryFileName: fileName,
+          installScope: "PROJECT",
+          machineId,
+        });
+
+        asset = {
+          id: newAsset.id,
+          slug: newAsset.slug,
+          name: newAsset.name,
+          type: newAsset.type,
+          primaryPlatform: newAsset.primaryPlatform,
+          currentVersion: newAsset.currentVersion,
+          storageType: "INLINE",
+          primaryFileName: newAsset.primaryFileName,
+          installScope: newAsset.installScope,
+          updatedAt: new Date().toISOString(),
+          syncState: null,
+        };
+        created++;
+      } catch (err) {
+        log.error(`  Failed to create asset for ${fileName}: ${err}`);
+        continue;
+      }
+    }
+
+    // Link it
+    const entry: LinkEntry = {
+      assetId: asset.id,
+      assetSlug: asset.slug,
+      localPath: filePath,
+      lastHash: fileHash,
+      lastSyncedVersion: asset.currentVersion,
+    };
+
+    projectConfig.links = projectConfig.links.filter(
+      (l) => l.assetId !== asset!.id
+    );
+    projectConfig.links.push(entry);
+    linked++;
+    log.success(`  Linked "${asset.name}" → ${filePath}`);
+  }
+
+  writeProjectConfig(normalizedRoot, projectConfig);
+
+  log.info("");
+  log.success(
+    `Done! Created ${created} asset(s), linked ${linked}, skipped ${skipped}.`
+  );
+  if (linked > 0) {
+    log.dim('Run `av sync` to push content, or `av watch` to start the daemon.');
+  }
 }
 
 export async function unlinkCommand(slug: string): Promise<void> {

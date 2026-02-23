@@ -51,6 +51,27 @@ export interface PutContentResponse {
   version: string;
 }
 
+export interface CreateAssetRequest {
+  name: string;
+  content: string;
+  type: "SKILL" | "COMMAND" | "AGENT";
+  primaryPlatform: string;
+  primaryFileName: string;
+  installScope: "USER" | "PROJECT";
+  machineId: string;
+}
+
+export interface CreateAssetResponse {
+  id: string;
+  slug: string;
+  name: string;
+  currentVersion: string;
+  primaryFileName: string;
+  type: string;
+  primaryPlatform: string;
+  installScope: string;
+}
+
 export interface RegisterMachineResponse {
   id: string;
   name: string;
@@ -119,6 +140,10 @@ export class ApiClient {
       name,
       machineIdentifier,
     });
+  }
+
+  async createAsset(body: CreateAssetRequest): Promise<CreateAssetResponse> {
+    return this.request("POST", "/api/cli/assets", body);
   }
 
   async reportSync(body: {

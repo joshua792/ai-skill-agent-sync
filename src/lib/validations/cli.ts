@@ -19,6 +19,18 @@ export const cliMachineRegisterSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, "Only letters, numbers, hyphens, and underscores"),
 });
 
+export const cliCreateAssetSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  content: z.string().min(1, "Content is required"),
+  type: z.enum(["SKILL", "COMMAND", "AGENT"]),
+  primaryPlatform: z.enum([
+    "CLAUDE_CODE", "GEMINI_CLI", "CHATGPT", "CURSOR", "WINDSURF", "AIDER", "OTHER",
+  ]),
+  primaryFileName: z.string().min(1).max(255),
+  installScope: z.enum(["USER", "PROJECT"]).default("PROJECT"),
+  machineId: z.string().min(1, "machineId is required"),
+});
+
 export const cliSyncReportSchema = z.object({
   machineId: z.string().min(1, "machineId is required"),
   assetId: z.string().min(1, "assetId is required"),

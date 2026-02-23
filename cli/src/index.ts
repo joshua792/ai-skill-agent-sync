@@ -3,7 +3,7 @@
 import { Command } from "commander";
 import { loginCommand } from "./commands/login.js";
 import { initCommand } from "./commands/init.js";
-import { linkCommand, unlinkCommand } from "./commands/link.js";
+import { linkCommand, linkAllCommand, unlinkCommand } from "./commands/link.js";
 import { statusCommand } from "./commands/status.js";
 import { pushCommand } from "./commands/push.js";
 import { pullCommand } from "./commands/pull.js";
@@ -33,6 +33,12 @@ program
   .argument("<slug>", "Asset slug to link")
   .argument("[path]", "Local file path (auto-detected if omitted)")
   .action(linkCommand);
+
+program
+  .command("link-all")
+  .description("Scan a directory, create assets from files, and link them all")
+  .argument("<dir>", "Directory to scan (e.g., .claude/skills)")
+  .action(linkAllCommand);
 
 program
   .command("unlink")
