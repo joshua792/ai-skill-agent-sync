@@ -108,6 +108,41 @@ describe("ApiClient", () => {
     );
   });
 
+  it("createAsset sends POST with correct body", async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        id: "asset_1",
+        slug: "my-skill",
+        name: "My Skill",
+        currentVersion: "1.0.0",
+        primaryFileName: "my-skill.md",
+        type: "SKILL",
+        primaryPlatform: "CLAUDE_CODE",
+        installScope: "PROJECT",
+      })
+    );
+    const result = await client.createAsset({
+      name: "My Skill",
+      content: "# Skill",
+      type: "SKILL",
+      primaryPlatform: "CLAUDE_CODE",
+      primaryFileName: "my-skill.md",
+      installScope: "PROJECT",
+      machineId: "m1",
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://assetvault.dev/api/cli/assets",
+      expect.objectContaining({ method: "POST" })
+    );
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.name).toBe("My Skill");
+    expect(body.type).toBe("SKILL");
+    expect(body.machineId).toBe("m1");
+    expect(result.id).toBe("asset_1");
+    expect(result.slug).toBe("my-skill");
+  });
+
   it("non-2xx responses throw descriptive errors", async () => {
     mockFetch.mockResolvedValue(
       mockResponse({ error: "Rate limited" }, 429)

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { decideSyncAction } from "../lib/conflict.js";
-import { getDefaultInstallSubdir, getDefaultLocalPath } from "../lib/install-paths.js";
+import {
+  getDefaultInstallSubdir,
+  getDefaultLocalPath,
+  inferTypeFromPath,
+  inferProjectName,
+} from "../lib/install-paths.js";
 
 // ═══════════════════════════════════════════════════════
 // Conflict Resolution
@@ -87,6 +92,81 @@ describe("getDefaultLocalPath", () => {
       "/home/user/myproject"
     );
     expect(result).toBe("/home/user/myproject/.claude/skills/test.md");
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// inferTypeFromPath
+// ═══════════════════════════════════════════════════════
+
+describe("inferTypeFromPath", () => {
+  it('.claude/skills → CLAUDE_CODE SKILL', () => {
+    const result = inferTypeFromPath("/home/user/project/.claude/skills");
+    expect(result).toEqual({ platform: "CLAUDE_CODE", type: "SKILL" });
+  });
+
+  it('.claude/commands → CLAUDE_CODE COMMAND', () => {
+    const result = inferTypeFromPath("/home/user/project/.claude/commands");
+    expect(result).toEqual({ platform: "CLAUDE_CODE", type: "COMMAND" });
+  });
+
+  it('.claude/agents → CLAUDE_CODE AGENT', () => {
+    const result = inferTypeFromPath("/home/user/project/.claude/agents");
+    expect(result).toEqual({ platform: "CLAUDE_CODE", type: "AGENT" });
+  });
+
+  it('.cursor/rules → CURSOR SKILL', () => {
+    const result = inferTypeFromPath("/home/user/project/.cursor/rules");
+    expect(result).toEqual({ platform: "CURSOR", type: "SKILL" });
+  });
+
+  it('.windsurf/rules → WINDSURF SKILL', () => {
+    const result = inferTypeFromPath("/home/user/project/.windsurf/rules");
+    expect(result).toEqual({ platform: "WINDSURF", type: "SKILL" });
+  });
+
+  it('.aider → AIDER SKILL', () => {
+    const result = inferTypeFromPath("/home/user/project/.aider");
+    expect(result).toEqual({ platform: "AIDER", type: "SKILL" });
+  });
+
+  it("handles Windows backslash paths", () => {
+    const result = inferTypeFromPath("C:\\Users\\asujo\\project\\.claude\\skills");
+    expect(result).toEqual({ platform: "CLAUDE_CODE", type: "SKILL" });
+  });
+
+  it("returns null for unknown path", () => {
+    expect(inferTypeFromPath("/home/user/project/src")).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(inferTypeFromPath("")).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// inferProjectName
+// ═══════════════════════════════════════════════════════
+
+describe("inferProjectName", () => {
+  it("extracts project name from .claude/skills path", () => {
+    expect(inferProjectName("/home/user/myproject/.claude/skills")).toBe("myproject");
+  });
+
+  it("extracts project name from .cursor/rules path", () => {
+    expect(inferProjectName("/home/user/my-app/.cursor/rules")).toBe("my-app");
+  });
+
+  it("extracts project name from Windows path", () => {
+    expect(inferProjectName("C:\\Users\\asujo\\CarsonKing\\.claude\\skills")).toBe("CarsonKing");
+  });
+
+  it("returns null for path with no known marker", () => {
+    expect(inferProjectName("/home/user/project/src")).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(inferProjectName("")).toBeNull();
   });
 });
 

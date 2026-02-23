@@ -7,6 +7,7 @@ import {
   assetContentPutSchema,
   cliMachineRegisterSchema,
   cliSyncReportSchema,
+  cliCreateAssetSchema,
 } from "@/lib/validations/cli";
 
 // ═══════════════════════════════════════════════════════
@@ -183,6 +184,111 @@ describe("cliSyncReportSchema", () => {
 });
 
 // ═══════════════════════════════════════════════════════
+// cliCreateAssetSchema
+// ═══════════════════════════════════════════════════════
+
+describe("cliCreateAssetSchema", () => {
+  const validInput = {
+    name: "My Skill",
+    content: "# Skill content",
+    type: "SKILL",
+    primaryPlatform: "CLAUDE_CODE",
+    primaryFileName: "my-skill.md",
+    installScope: "PROJECT",
+    machineId: "machine_123",
+  };
+
+  it("accepts valid input", () => {
+    const result = cliCreateAssetSchema.safeParse(validInput);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty name", () => {
+    const result = cliCreateAssetSchema.safeParse({ ...validInput, name: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts name at max 200 chars", () => {
+    const result = cliCreateAssetSchema.safeParse({
+      ...validInput,
+      name: "a".repeat(200),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects name over 200 chars", () => {
+    const result = cliCreateAssetSchema.safeParse({
+      ...validInput,
+      name: "a".repeat(201),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty content", () => {
+    const result = cliCreateAssetSchema.safeParse({ ...validInput, content: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it.each(["SKILL", "COMMAND", "AGENT"])("accepts type %s", (type) => {
+    const result = cliCreateAssetSchema.safeParse({ ...validInput, type });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid type", () => {
+    const result = cliCreateAssetSchema.safeParse({ ...validInput, type: "INVALID" });
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    "CLAUDE_CODE", "GEMINI_CLI", "CHATGPT", "CURSOR", "WINDSURF", "AIDER", "OTHER",
+  ])("accepts platform %s", (platform) => {
+    const result = cliCreateAssetSchema.safeParse({
+      ...validInput,
+      primaryPlatform: platform,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid platform", () => {
+    const result = cliCreateAssetSchema.safeParse({
+      ...validInput,
+      primaryPlatform: "INVALID",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty primaryFileName", () => {
+    const result = cliCreateAssetSchema.safeParse({
+      ...validInput,
+      primaryFileName: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts primaryFileName at 255 chars", () => {
+    const result = cliCreateAssetSchema.safeParse({
+      ...validInput,
+      primaryFileName: "a".repeat(255),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("defaults installScope to PROJECT when omitted", () => {
+    const { installScope, ...rest } = validInput;
+    const result = cliCreateAssetSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.installScope).toBe("PROJECT");
+    }
+  });
+
+  it("rejects empty machineId", () => {
+    const result = cliCreateAssetSchema.safeParse({ ...validInput, machineId: "" });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════
 // Source Contracts — Route Files
 // ═══════════════════════════════════════════════════════
 
@@ -273,5 +379,47 @@ describe("CLI API Route Contracts", () => {
     const versionPath = path.resolve(__dirname, "../lib/version.ts");
     const content = fs.readFileSync(versionPath, "utf-8");
     expect(content).toContain("export function bumpPatchVersion");
+  });
+
+  it("/api/cli/assets route exists", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    expect(fs.existsSync(routePath)).toBe(true);
+  });
+
+  it("/api/cli/assets route uses requireApiKeyAuth", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    const content = fs.readFileSync(routePath, "utf-8");
+    expect(content).toContain("requireApiKeyAuth");
+    expect(content).not.toContain("currentUser");
+  });
+
+  it("/api/cli/assets route has rate limiting", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    const content = fs.readFileSync(routePath, "utf-8");
+    expect(content).toContain("rateLimit");
+  });
+
+  it("/api/cli/assets route uses cliCreateAssetSchema", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    const content = fs.readFileSync(routePath, "utf-8");
+    expect(content).toContain("cliCreateAssetSchema");
+  });
+
+  it("/api/cli/assets route creates asset with db.asset.create", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    const content = fs.readFileSync(routePath, "utf-8");
+    expect(content).toContain("db.asset.create");
+  });
+
+  it("/api/cli/assets route returns 201", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    const content = fs.readFileSync(routePath, "utf-8");
+    expect(content).toContain("201");
+  });
+
+  it("/api/cli/assets route verifies machine ownership", () => {
+    const routePath = path.join(routeBase, "assets", "route.ts");
+    const content = fs.readFileSync(routePath, "utf-8");
+    expect(content).toContain("userMachine.findFirst");
   });
 });

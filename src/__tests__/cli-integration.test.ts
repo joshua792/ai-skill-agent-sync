@@ -42,6 +42,41 @@ describe("CLI ↔ Server INSTALL_PATHS parity", () => {
   });
 });
 
+describe("CLI DIR_TO_TYPE ↔ Server INSTALL_PATHS parity", () => {
+  const cliInstallPaths = fs.readFileSync(
+    path.resolve(__dirname, "../../cli/src/lib/install-paths.ts"),
+    "utf-8"
+  );
+
+  it("DIR_TO_TYPE includes .claude/skills mapping", () => {
+    expect(cliInstallPaths).toContain('".claude/skills"');
+    expect(cliInstallPaths).toContain('"CLAUDE_CODE"');
+  });
+
+  it("DIR_TO_TYPE includes .claude/commands mapping", () => {
+    expect(cliInstallPaths).toContain('".claude/commands"');
+  });
+
+  it("DIR_TO_TYPE includes .claude/agents mapping", () => {
+    expect(cliInstallPaths).toContain('".claude/agents"');
+  });
+
+  it("DIR_TO_TYPE includes .cursor/rules mapping", () => {
+    expect(cliInstallPaths).toContain('".cursor/rules"');
+    expect(cliInstallPaths).toContain('"CURSOR"');
+  });
+
+  it("DIR_TO_TYPE includes .windsurf/rules mapping", () => {
+    expect(cliInstallPaths).toContain('".windsurf/rules"');
+    expect(cliInstallPaths).toContain('"WINDSURF"');
+  });
+
+  it("DIR_TO_TYPE includes .aider mapping", () => {
+    expect(cliInstallPaths).toContain('".aider"');
+    expect(cliInstallPaths).toContain('"AIDER"');
+  });
+});
+
 // ═══════════════════════════════════════════════════════
 // Cross-Cutting: API Key Infrastructure
 // ═══════════════════════════════════════════════════════
@@ -115,6 +150,41 @@ describe("CLI tool structure", () => {
     }
   });
 
+  it("link-all command is registered in CLI entry point", () => {
+    const indexContent = fs.readFileSync(
+      path.join(cliBase, "src", "index.ts"),
+      "utf-8"
+    );
+    expect(indexContent).toContain("link-all");
+    expect(indexContent).toContain("linkAllCommand");
+  });
+
+  it("link.ts exports linkAllCommand", () => {
+    const linkContent = fs.readFileSync(
+      path.join(cliBase, "src", "commands", "link.ts"),
+      "utf-8"
+    );
+    expect(linkContent).toContain("export async function linkAllCommand");
+  });
+
+  it("linkAllCommand uses inferTypeFromPath and inferProjectName", () => {
+    const linkContent = fs.readFileSync(
+      path.join(cliBase, "src", "commands", "link.ts"),
+      "utf-8"
+    );
+    expect(linkContent).toContain("inferTypeFromPath");
+    expect(linkContent).toContain("inferProjectName");
+  });
+
+  it("CLI install-paths exports inferTypeFromPath and inferProjectName", () => {
+    const installPaths = fs.readFileSync(
+      path.join(cliBase, "src", "lib", "install-paths.ts"),
+      "utf-8"
+    );
+    expect(installPaths).toContain("export function inferTypeFromPath");
+    expect(installPaths).toContain("export function inferProjectName");
+  });
+
   it("CLI config module exists", () => {
     expect(
       fs.existsSync(path.join(cliBase, "src", "lib", "config.ts"))
@@ -163,6 +233,7 @@ describe("CLI REST API routes", () => {
     { path: "whoami/route.ts", method: "GET" },
     { path: "sync-manifest/route.ts", method: "GET" },
     { path: "assets/[id]/content/route.ts", method: "GET+PUT" },
+    { path: "assets/route.ts", method: "POST" },
     { path: "machines/register/route.ts", method: "POST" },
     { path: "sync/route.ts", method: "POST" },
   ];
