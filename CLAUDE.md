@@ -4,6 +4,13 @@ AI Skill/Agent asset marketplace built with Next.js 16, TypeScript, Prisma 7, an
 
 ## Changelog
 
+### 2026-02-23 (Subdirectory skill scanning)
+
+- **Commit**: `16f0c1e` -- fix: support subdirectory skill pattern in link-all, sync, and watch
+- **Changes**: Fixed `link-all`, `sync`, and `watch` commands to support the Claude Code subdirectory skill pattern (`skills/deploy/SKILL.md`) in addition to direct files (`skills/deploy.md`). File scanning now recursively finds `.md` files inside subdirectories. Asset names use the subdirectory name as display name (e.g., "deploy" not "deploy/SKILL"). Pull mode creates subdirectories when needed. Parent directory scanning ensures sibling skill directories are discovered by sync/watch.
+- **Tests**: All existing tests pass (618 total: 530 server + 88 CLI)
+- **Files**: cli/src/commands/link.ts, cli/src/commands/sync.ts, cli/src/commands/watch.ts
+
 ### 2026-02-23 (CLI auto-update + new file detection)
 - **Commit**: `67c5a58` -- feat: add `av update` command and background update checker
 - **Changes**: Added git-based CLI self-update (`av update`) that automates git pull + pnpm install + pnpm build with stash handling. Background update checker runs after every command (4-hour cache) and warns when new commits are available. Added `--project` flag to `link-all` for cross-machine folder name mismatches. Dynamic version display shows git commit hash (`av --version` → `0.1.0 (abc1234)`). Also updated `sync` and `watch` to auto-detect new unlinked files in linked directories — no need to re-run `link-all` when adding new skills.
