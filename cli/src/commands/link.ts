@@ -136,17 +136,28 @@ export async function linkAllCommand(dir: string): Promise<void> {
   if (localFiles.length === 0) {
     log.info(`No local files found. Pulling matching assets from the vault...`);
 
-    // Filter assets that match this platform + type
-    const matchingAssets = existingAssets.filter(
-      (a) => a.primaryPlatform === platform && a.type === type && a.storageType === "INLINE"
-    );
+    // Filter assets that match this platform + type + project
+    const namePrefix = projectName ? `${projectName} - ` : null;
+    const matchingAssets = existingAssets.filter((a) => {
+      if (a.primaryPlatform !== platform || a.type !== type || a.storageType !== "INLINE") {
+        return false;
+      }
+      // If we have a project name, only pull assets belonging to this project
+      if (namePrefix) {
+        return a.name.startsWith(namePrefix);
+      }
+      return true;
+    });
 
     if (matchingAssets.length === 0) {
-      log.warn(`No matching ${platform} ${type} assets found in your vault.`);
+      log.warn(
+        `No matching ${platform} ${type} assets found` +
+        `${namePrefix ? ` for project "${projectName}"` : ""} in your vault.`
+      );
       return;
     }
 
-    log.info(`Found ${matchingAssets.length} matching asset(s) in vault.`);
+    log.info(`Found ${matchingAssets.length} matching asset(s)${namePrefix ? ` for "${projectName}"` : ""} in vault.`);
 
     // Ensure directory exists
     if (!dirExists) {
