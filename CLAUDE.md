@@ -4,6 +4,12 @@ AI Skill/Agent asset marketplace built with Next.js 16, TypeScript, Prisma 7, an
 
 ## Changelog
 
+### 2026-02-23 (link-all CLI command)
+- **Commit**: `219db05` -- feat: add `av link-all` command for bulk directory scanning and asset creation
+- **Changes**: Added `av link-all <dir>` CLI command that scans a project directory (e.g., `.claude/skills`), auto-creates assets in the vault with project name prefixed (e.g., "CarsonKing - my-skill"), and links them all at once. Includes server-side `POST /api/cli/assets` endpoint with API key auth and rate limiting, `cliCreateAssetSchema` validation, `inferTypeFromPath()` for directory-to-platform/type mapping, `inferProjectName()` for extracting project name from path, and `createAsset` API client method.
+- **Tests**: Added 54 new tests (592 total, all passing) — cliCreateAssetSchema validation (18), inferTypeFromPath/inferProjectName unit tests (14), createAsset API client (1), route + integration contracts (21)
+- **Files**: src/app/api/cli/assets/route.ts, src/lib/validations/cli.ts, cli/src/commands/link.ts, cli/src/index.ts, cli/src/lib/api-client.ts, cli/src/lib/install-paths.ts, src/__tests__/cli-api.test.ts, src/__tests__/cli-integration.test.ts, cli/src/__tests__/sync.test.ts, cli/src/__tests__/api-client.test.ts
+
 ### 2026-02-11
 - **Commit**: `d239026` -- feat: add bundle/zip upload support and Vitest test suite
 - **Changes**: Added BUNDLE storage type for multi-file assets with zip upload API, manifest tracking, and file tree display. Updated validation schema with storageType/bundleUrl/bundleManifest. Added formatBytes utility. Set up Vitest with 188 tests across validations, utilities, server actions, and integration contracts.
