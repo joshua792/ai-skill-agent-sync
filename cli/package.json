@@ -1,0 +1,23 @@
+{
+  "name": "@assetvault/cli",
+  "version": "0.1.0",
+  "description": "AssetVault CLI — sync AI skills, commands, and agents across machines",
+  "type": "module",
+  "bin": {
+    "av": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
+  }
+}

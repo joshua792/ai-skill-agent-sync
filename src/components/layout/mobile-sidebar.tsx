@@ -11,6 +11,7 @@ import {
   Settings,
   BarChart3,
   ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ const sidebarItems = [
   { title: "My Assets", href: "/dashboard", icon: LayoutDashboard },
   { title: "Machines", href: "/dashboard/machines", icon: Monitor },
   { title: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { title: "API Keys", href: "/dashboard/api-keys", icon: KeyRound },
   { title: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

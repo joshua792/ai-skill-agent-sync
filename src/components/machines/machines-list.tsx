@@ -12,6 +12,7 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,9 +169,22 @@ export function MachinesList({ machines }: MachinesListProps) {
                   <p className="text-xs font-mono text-muted-foreground">
                     {machine.machineIdentifier}
                   </p>
-                  <CardDescription>
-                    {machine._count.syncStates} asset
-                    {machine._count.syncStates !== 1 && "s"} synced
+                  <CardDescription className="flex items-center gap-2">
+                    <span>
+                      {machine._count.syncStates} asset
+                      {machine._count.syncStates !== 1 && "s"} synced
+                    </span>
+                    {machine.lastSyncAt &&
+                      Date.now() - new Date(machine.lastSyncAt).getTime() < 90_000 ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1 text-green-400 border-green-400/50">
+                        <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
+                        Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                        Inactive
+                      </Badge>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardFooter className="text-xs text-muted-foreground justify-between">

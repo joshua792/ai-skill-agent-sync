@@ -9,6 +9,7 @@ import {
   Settings,
   BarChart3,
   ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,11 @@ const sidebarItems = [
     title: "Analytics",
     href: "/dashboard/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "API Keys",
+    href: "/dashboard/api-keys",
+    icon: KeyRound,
   },
   {
     title: "Settings",

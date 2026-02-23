@@ -29,7 +29,19 @@ export default async function MachineSyncPage({ params }: Props) {
   const machine = await db.userMachine.findUnique({
     where: { id },
     include: {
-      syncStates: true,
+      syncStates: {
+        select: {
+          id: true,
+          machineId: true,
+          assetId: true,
+          syncedVersion: true,
+          installPath: true,
+          localHash: true,
+          lastPushAt: true,
+          lastPullAt: true,
+          syncedAt: true,
+        },
+      },
     },
   });
 

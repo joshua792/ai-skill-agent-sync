@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Check, FolderOpen } from "lucide-react";
+import { Download, Check, FolderOpen, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { AssetTypeBadge } from "@/components/assets/asset-type-badge";
 import { SyncStatusBadge } from "./sync-status-badge";
@@ -23,6 +24,7 @@ import {
   syncAssetToMachine,
   markAssetSynced,
 } from "@/lib/actions/machine";
+import { formatDistanceToNow } from "@/lib/format";
 
 interface SerializedSyncState {
   id: string;
@@ -30,6 +32,9 @@ interface SerializedSyncState {
   assetId: string;
   syncedVersion: string;
   installPath: string | null;
+  localHash: string | null;
+  lastPushAt: string | null;
+  lastPullAt: string | null;
   syncedAt: string;
 }
 
@@ -103,6 +108,10 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
     (a) => a.status === "not_synced"
   ).length;
 
+  const isDaemonActive = machine.lastSyncAt
+    ? Date.now() - new Date(machine.lastSyncAt).getTime() < 90_000
+    : false;
+
   const filtered =
     statusFilter === "ALL"
       ? assetsWithStatus
@@ -172,6 +181,14 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
 
   return (
     <div className="space-y-6">
+      {/* Daemon status */}
+      {isDaemonActive && (
+        <Badge variant="outline" className="w-fit gap-1.5 text-green-400 border-green-400/50">
+          <span className="size-2 rounded-full bg-green-400 animate-pulse" />
+          CLI Daemon Active
+        </Badge>
+      )}
+
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card>
@@ -230,6 +247,7 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
               <TableHead>Current</TableHead>
               <TableHead>Synced</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Last Sync</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -260,6 +278,29 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
                   </TableCell>
                   <TableCell>
                     <SyncStatusBadge status={status} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {syncState ? (
+                      <div className="flex items-center gap-1.5">
+                        {syncState.lastPushAt &&
+                          (!syncState.lastPullAt ||
+                            new Date(syncState.lastPushAt) >= new Date(syncState.lastPullAt)) ? (
+                          <>
+                            <ArrowUp className="size-3 text-blue-400" />
+                            <span>Pushed {formatDistanceToNow(new Date(syncState.lastPushAt))}</span>
+                          </>
+                        ) : syncState.lastPullAt ? (
+                          <>
+                            <ArrowDown className="size-3 text-green-400" />
+                            <span>Pulled {formatDistanceToNow(new Date(syncState.lastPullAt))}</span>
+                          </>
+                        ) : (
+                          <span>{formatDistanceToNow(new Date(syncState.syncedAt))}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span>—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -313,7 +354,7 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center text-muted-foreground py-8"
                 >
                   No assets match this filter.

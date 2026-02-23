@@ -121,3 +121,7 @@ export function getDefaultInstallSubdir(
   if (!platformMap) return ".";
   return platformMap[assetType] ?? platformMap["*"] ?? ".";
 }
+
+// ─── API Key ──────────────────────────────────────────
+
+export const API_KEY_PREFIX = "avk_";

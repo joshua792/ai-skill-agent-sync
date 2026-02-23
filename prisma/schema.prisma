@@ -84,6 +84,7 @@ model User {
   machines   UserMachine[]
   downloads  Download[]
   sharesSent AssetShare[]
+  apiKeys    ApiKey[]
 
   @@map("users")
 }
@@ -175,6 +176,7 @@ model UserMachine {
   createdAt         DateTime @default(now())
 
   syncStates MachineSyncState[]
+  apiKeys    ApiKey[]
 
   @@unique([userId, machineIdentifier])
   @@index([userId])
@@ -189,6 +191,9 @@ model MachineSyncState {
   asset         Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
   syncedVersion String
   installPath   String?
+  localHash     String?
+  lastPushAt    DateTime?
+  lastPullAt    DateTime?
   syncedAt      DateTime    @default(now())
 
   @@unique([machineId, assetId])
@@ -212,4 +217,23 @@ model AssetShare {
   @@index([email])
   @@index([token])
   @@map("asset_shares")
+}
+
+model ApiKey {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machineId  String?
+  machine    UserMachine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  name       String
+  hashedKey  String       @unique
+  prefix     String
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([userId])
+  @@index([hashedKey])
+  @@map("api_keys")
 }
