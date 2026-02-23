@@ -108,11 +108,6 @@ export async function linkAllCommand(dir: string): Promise<void> {
 
   const resolvedDir = path.resolve(dir);
 
-  if (!fs.existsSync(resolvedDir) || !fs.statSync(resolvedDir).isDirectory()) {
-    log.error(`Directory not found: ${resolvedDir}`);
-    process.exit(1);
-  }
-
   // Infer platform + type from the directory path
   const inferred = inferTypeFromPath(resolvedDir);
   if (!inferred) {
@@ -126,24 +121,117 @@ export async function linkAllCommand(dir: string): Promise<void> {
   const projectName = inferProjectName(resolvedDir);
   const { platform, type } = inferred;
 
-  log.info(`Scanning ${resolvedDir}`);
+  // Check if directory exists and has files
+  const dirExists = fs.existsSync(resolvedDir) && fs.statSync(resolvedDir).isDirectory();
+  const localFiles = dirExists
+    ? fs.readdirSync(resolvedDir).filter((f) => fs.statSync(path.join(resolvedDir, f)).isFile())
+    : [];
+
   log.info(`Detected: platform=${platform}, type=${type}${projectName ? `, project=${projectName}` : ""}`);
 
-  // Scan directory for files
-  const files = fs.readdirSync(resolvedDir).filter((f) => {
-    const fullPath = path.join(resolvedDir, f);
-    return fs.statSync(fullPath).isFile();
-  });
+  // Fetch manifest to see what's available on the server
+  const { assets: existingAssets } = await client.syncManifest(machineId);
 
-  if (files.length === 0) {
-    log.warn("No files found in directory.");
+  // If the directory is empty or doesn't exist, pull matching assets from the vault
+  if (localFiles.length === 0) {
+    log.info(`No local files found. Pulling matching assets from the vault...`);
+
+    // Filter assets that match this platform + type
+    const matchingAssets = existingAssets.filter(
+      (a) => a.primaryPlatform === platform && a.type === type && a.storageType === "INLINE"
+    );
+
+    if (matchingAssets.length === 0) {
+      log.warn(`No matching ${platform} ${type} assets found in your vault.`);
+      return;
+    }
+
+    log.info(`Found ${matchingAssets.length} matching asset(s) in vault.`);
+
+    // Ensure directory exists
+    if (!dirExists) {
+      fs.mkdirSync(resolvedDir, { recursive: true });
+      log.info(`Created directory: ${resolvedDir}`);
+    }
+
+    // Determine project root
+    const normalizedRoot = resolveProjectRoot(resolvedDir);
+    const projectConfig = readProjectConfig(normalizedRoot) ?? { links: [] };
+
+    let linked = 0;
+    let pulled = 0;
+
+    for (const asset of matchingAssets) {
+      const filePath = path.join(resolvedDir, asset.primaryFileName);
+
+      // Check if already linked
+      const alreadyLinked = projectConfig.links.some(
+        (l) => l.assetId === asset.id
+      ) || config.userLinks.some(
+        (l) => l.assetId === asset.id
+      );
+
+      if (alreadyLinked) {
+        log.dim(`  Skipping ${asset.name} (already linked)`);
+        continue;
+      }
+
+      // Download content
+      log.info(`  Pulling "${asset.name}"...`);
+      try {
+        const assetContent = await client.getAssetContent(asset.id);
+
+        if (assetContent.type === "BUNDLE") {
+          log.warn(`  Skipping ${asset.name} (BUNDLE)`);
+          continue;
+        }
+
+        // Write file
+        fs.writeFileSync(filePath, assetContent.content ?? "", "utf-8");
+        const fileHash = hashContent(assetContent.content ?? "");
+
+        // Link it
+        const entry: LinkEntry = {
+          assetId: asset.id,
+          assetSlug: asset.slug,
+          localPath: filePath,
+          lastHash: fileHash,
+          lastSyncedVersion: assetContent.version,
+        };
+
+        projectConfig.links = projectConfig.links.filter(
+          (l) => l.assetId !== asset.id
+        );
+        projectConfig.links.push(entry);
+        linked++;
+        pulled++;
+
+        // Report sync
+        await client.reportSync({
+          machineId,
+          assetId: asset.id,
+          syncedVersion: assetContent.version,
+          localHash: fileHash,
+          direction: "pull",
+        });
+
+        log.success(`  Pulled "${asset.name}" → ${filePath}`);
+      } catch (err) {
+        log.error(`  Failed to pull ${asset.name}: ${err}`);
+      }
+    }
+
+    writeProjectConfig(normalizedRoot, projectConfig);
+
+    log.info("");
+    log.success(`Done! Linked and pulled ${pulled} asset(s).`);
     return;
   }
 
-  log.info(`Found ${files.length} file(s): ${files.join(", ")}`);
+  // --- Directory has local files: push mode (existing behavior) ---
+  log.info(`Scanning ${resolvedDir}`);
+  log.info(`Found ${localFiles.length} file(s): ${localFiles.join(", ")}`);
 
-  // Fetch existing assets to avoid duplicates
-  const { assets: existingAssets } = await client.syncManifest(machineId);
   const existingByFile = new Map(
     existingAssets.map((a) => [a.primaryFileName, a])
   );
@@ -152,22 +240,10 @@ export async function linkAllCommand(dir: string): Promise<void> {
   let linked = 0;
   let skipped = 0;
 
-  // Determine project root (parent of .claude/, .cursor/, etc.)
-  const normalized = resolvedDir.replace(/\\/g, "/");
-  const markers = [".claude/", ".cursor/", ".windsurf/", ".aider"];
-  let projectRoot = process.cwd();
-  for (const marker of markers) {
-    const idx = normalized.indexOf(marker);
-    if (idx > 0) {
-      projectRoot = normalized.substring(0, idx);
-      break;
-    }
-  }
-  const normalizedRoot = path.resolve(projectRoot);
-
+  const normalizedRoot = resolveProjectRoot(resolvedDir);
   const projectConfig = readProjectConfig(normalizedRoot) ?? { links: [] };
 
-  for (const fileName of files) {
+  for (const fileName of localFiles) {
     const filePath = path.join(resolvedDir, fileName);
     const content = fs.readFileSync(filePath, "utf-8");
     const fileHash = hashContent(content);
@@ -252,6 +328,18 @@ export async function linkAllCommand(dir: string): Promise<void> {
   if (linked > 0) {
     log.dim('Run `av sync` to push content, or `av watch` to start the daemon.');
   }
+}
+
+function resolveProjectRoot(resolvedDir: string): string {
+  const normalized = resolvedDir.replace(/\\/g, "/");
+  const markers = [".claude/", ".cursor/", ".windsurf/", ".aider"];
+  for (const marker of markers) {
+    const idx = normalized.indexOf(marker);
+    if (idx > 0) {
+      return path.resolve(normalized.substring(0, idx));
+    }
+  }
+  return path.resolve(process.cwd());
 }
 
 export async function unlinkCommand(slug: string): Promise<void> {
