@@ -4,6 +4,12 @@ AI Skill/Agent asset marketplace built with Next.js 16, TypeScript, Prisma 7, an
 
 ## Changelog
 
+### 2026-02-23 (CLI auto-update + new file detection)
+- **Commit**: `67c5a58` -- feat: add `av update` command and background update checker
+- **Changes**: Added git-based CLI self-update (`av update`) that automates git pull + pnpm install + pnpm build with stash handling. Background update checker runs after every command (4-hour cache) and warns when new commits are available. Added `--project` flag to `link-all` for cross-machine folder name mismatches. Dynamic version display shows git commit hash (`av --version` → `0.1.0 (abc1234)`). Also updated `sync` and `watch` to auto-detect new unlinked files in linked directories — no need to re-run `link-all` when adding new skills.
+- **Tests**: Added 70 new tests (662 total, all passing) — 26 CLI update tests (module exports, repo detection, version hash, cache, source contracts), 44 server-side integration tests (auto-update module contracts, --project flag)
+- **Files**: cli/src/lib/repo.ts, cli/src/lib/cli-version.ts, cli/src/lib/update-check.ts, cli/src/commands/update.ts, cli/src/commands/sync.ts, cli/src/commands/watch.ts, cli/src/commands/link.ts, cli/src/index.ts, cli/src/__tests__/update.test.ts, src/__tests__/cli-integration.test.ts
+
 ### 2026-02-23 (link-all CLI command)
 - **Commit**: `219db05` -- feat: add `av link-all` command for bulk directory scanning and asset creation
 - **Changes**: Added `av link-all <dir>` CLI command that scans a project directory (e.g., `.claude/skills`), auto-creates assets in the vault with project name prefixed (e.g., "CarsonKing - my-skill"), and links them all at once. Includes server-side `POST /api/cli/assets` endpoint with API key auth and rate limiting, `cliCreateAssetSchema` validation, `inferTypeFromPath()` for directory-to-platform/type mapping, `inferProjectName()` for extracting project name from path, and `createAsset` API client method.
