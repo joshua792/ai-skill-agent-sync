@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       type: type as "SKILL" | "COMMAND" | "AGENT",
       primaryPlatform: primaryPlatform as "CLAUDE_CODE" | "GEMINI_CLI" | "CHATGPT" | "CURSOR" | "WINDSURF" | "AIDER" | "OTHER",
       compatiblePlatforms: [primaryPlatform as "CLAUDE_CODE" | "GEMINI_CLI" | "CHATGPT" | "CURSOR" | "WINDSURF" | "AIDER" | "OTHER"],
-      category: "GENERAL",
+      category: "OTHER",
       tags: [],
       visibility: "PRIVATE",
       installScope: installScope as "USER" | "PROJECT",
