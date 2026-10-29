@@ -19,13 +19,18 @@ export default async function MachinesPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-8">
         <Monitor className="h-6 w-6 text-muted-foreground" />
         <h1 className="text-2xl font-bold">My Machines</h1>
       </div>
-      <MachinesList machines={JSON.parse(JSON.stringify(machines))} />
+      <MachinesList
+        machines={JSON.parse(JSON.stringify(machines))}
+        appUrl={appUrl}
+      />
     </div>
   );
 }

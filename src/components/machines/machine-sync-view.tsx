@@ -25,6 +25,7 @@ import {
   markAssetSynced,
 } from "@/lib/actions/machine";
 import { formatDistanceToNow } from "@/lib/format";
+import { useNow } from "@/hooks/use-now";
 
 interface SerializedSyncState {
   id: string;
@@ -83,6 +84,7 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const now = useNow();
   const [installAsset, setInstallAsset] = useState<SerializedAsset | null>(null);
 
   const syncMap = new Map(
@@ -109,7 +111,7 @@ export function MachineSyncView({ machine, assets }: MachineSyncViewProps) {
   ).length;
 
   const isDaemonActive = machine.lastSyncAt
-    ? Date.now() - new Date(machine.lastSyncAt).getTime() < 90_000
+    ? now - new Date(machine.lastSyncAt).getTime() < 90_000
     : false;
 
   const filtered =

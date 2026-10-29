@@ -42,6 +42,10 @@ export async function linkCommand(
   let resolvedPath: string;
   if (localPath) {
     resolvedPath = path.resolve(localPath);
+    // If the user passed a directory, append the asset's primary filename
+    if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
+      resolvedPath = path.join(resolvedPath, asset.primaryFileName);
+    }
   } else {
     const subdir = getDefaultInstallSubdir(asset.primaryPlatform, asset.type);
     if (asset.installScope === "PROJECT") {
@@ -190,7 +194,6 @@ export async function linkAllCommand(dir: string, projectOverride?: string): Pro
     const normalizedRoot = resolveProjectRoot(resolvedDir);
     const projectConfig = readProjectConfig(normalizedRoot) ?? { links: [] };
 
-    let linked = 0;
     let pulled = 0;
 
     for (const asset of matchingAssets) {
@@ -241,7 +244,6 @@ export async function linkAllCommand(dir: string, projectOverride?: string): Pro
           (l) => l.assetId !== asset.id
         );
         projectConfig.links.push(entry);
-        linked++;
         pulled++;
 
         // Report sync

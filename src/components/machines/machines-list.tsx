@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Monitor, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Monitor, Trash2, RefreshCw, Terminal } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { registerMachine, deleteMachine } from "@/lib/actions/machine";
 import { formatDistanceToNow } from "@/lib/format";
+import { CliSetupWizard } from "@/components/machines/cli-setup-wizard";
+import { useNow } from "@/hooks/use-now";
 
 interface SerializedMachine {
   id: string;
@@ -39,10 +41,13 @@ interface SerializedMachine {
 
 interface MachinesListProps {
   machines: SerializedMachine[];
+  appUrl: string;
 }
 
-export function MachinesList({ machines }: MachinesListProps) {
+export function MachinesList({ machines, appUrl }: MachinesListProps) {
   const router = useRouter();
+  const now = useNow();
+  const [setupOpen, setSetupOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -90,14 +95,19 @@ export function MachinesList({ machines }: MachinesListProps) {
 
   return (
     <div>
-      {/* Register Machine Button */}
-      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
-        <DialogTrigger asChild>
-          <Button className="gap-2 mb-6">
-            <Plus className="size-4" />
-            Register Machine
-          </Button>
-        </DialogTrigger>
+      {/* Action Buttons */}
+      <div className="flex gap-2 mb-6">
+        <Button className="gap-2" onClick={() => setSetupOpen(true)}>
+          <Terminal className="size-4" />
+          Setup CLI
+        </Button>
+        <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Plus className="size-4" />
+              Register Machine
+            </Button>
+          </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Register Machine</DialogTitle>
@@ -152,6 +162,9 @@ export function MachinesList({ machines }: MachinesListProps) {
           </form>
         </DialogContent>
       </Dialog>
+      </div>
+
+      <CliSetupWizard open={setupOpen} onOpenChange={setSetupOpen} appUrl={appUrl} />
 
       {/* Machine Cards Grid */}
       {machines.length > 0 ? (
@@ -175,7 +188,7 @@ export function MachinesList({ machines }: MachinesListProps) {
                       {machine._count.syncStates !== 1 && "s"} synced
                     </span>
                     {machine.lastSyncAt &&
-                      Date.now() - new Date(machine.lastSyncAt).getTime() < 90_000 ? (
+                      now - new Date(machine.lastSyncAt).getTime() < 90_000 ? (
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1 text-green-400 border-green-400/50">
                         <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
                         Active
@@ -244,13 +257,25 @@ export function MachinesList({ machines }: MachinesListProps) {
         </div>
       ) : (
         <div className="rounded-lg border border-dashed p-12 text-center">
-          <Monitor className="mx-auto size-10 text-muted-foreground mb-4" />
+          <Terminal className="mx-auto size-10 text-muted-foreground mb-4" />
           <p className="text-muted-foreground mb-2">
             No machines registered yet.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Register your machines to track which assets are synced to each
-            device.
+          <p className="text-sm text-muted-foreground mb-4">
+            Set up the CLI to sync assets across your machines.
+          </p>
+          <Button onClick={() => setSetupOpen(true)} className="gap-2">
+            <Terminal className="size-4" />
+            Get Started with the CLI
+          </Button>
+          <p className="text-xs text-muted-foreground mt-3">
+            Or{" "}
+            <button
+              onClick={() => setRegisterOpen(true)}
+              className="underline hover:text-foreground transition-colors"
+            >
+              register a machine manually
+            </button>
           </p>
         </div>
       )}

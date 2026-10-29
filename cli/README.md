@@ -4,14 +4,17 @@ A lightweight command-line tool for bidirectional sync of AI skills, commands, a
 
 ## Installation
 
-```bash
-# From the monorepo root
-pnpm install
-cd cli && pnpm build
+Requires Git, Node.js 20+, and pnpm.
 
-# Or install globally
-npm install -g @assetvault/cli
+```bash
+git clone https://github.com/joshua792/ai-skill-agent-sync.git
+cd ai-skill-agent-sync && pnpm install
+cd cli && pnpm build && npm link   # puts `av` on your PATH
+
+av --version
 ```
+
+Update later with `av update` (pulls, reinstalls, and rebuilds in place).
 
 ## Quick Start
 
