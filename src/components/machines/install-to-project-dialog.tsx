@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AssetTypeBadge } from "@/components/assets/asset-type-badge";
 import { syncAssetToMachine } from "@/lib/actions/machine";
+import { extractBundle } from "@/lib/bundle-extract";
 import {
   getDefaultInstallSubdir,
   PLATFORM_LABELS,
@@ -54,6 +55,23 @@ type Step = "pick" | "installing" | "done" | "error";
 const isFileSystemAccessSupported =
   typeof window !== "undefined" && "showDirectoryPicker" in window;
 
+async function writeFile(
+  root: FileSystemDirectoryHandle,
+  segments: string[],
+  data: string | Uint8Array
+) {
+  let dir = root;
+  for (const part of segments.slice(0, -1)) {
+    dir = await dir.getDirectoryHandle(part, { create: true });
+  }
+  const fileHandle = await dir.getFileHandle(segments[segments.length - 1], {
+    create: true,
+  });
+  const writable = await fileHandle.createWritable();
+  await writable.write(data as string | BufferSource);
+  await writable.close();
+}
+
 export function InstallToProjectDialog({
   open,
   onOpenChange,
@@ -71,6 +89,7 @@ export function InstallToProjectDialog({
   );
   const [errorMessage, setErrorMessage] = useState("");
 
+  const isBundle = asset.storageType === "BUNDLE" && !!asset.bundleUrl;
   const targetPath = [projectName, subdir, asset.primaryFileName]
     .filter((p) => p && p !== ".")
     .join("/");
@@ -102,31 +121,25 @@ export function InstallToProjectDialog({
 
     setStep("installing");
     try {
-      const content = asset.content;
-      if (!content) throw new Error("No content available to install");
+      const baseSegments =
+        subdir && subdir !== "." ? subdir.split("/").filter(Boolean) : [];
 
-      // Navigate/create subdirectory path, including any folders in the
-      // primary file name (folder uploads store e.g. "deploy/SKILL.md")
-      let currentDir = directoryHandle;
-      const fileParts = asset.primaryFileName.split("/").filter(Boolean);
-      const fileName = fileParts.pop()!;
-      const parts = [
-        ...(subdir && subdir !== "." ? subdir.split("/").filter(Boolean) : []),
-        ...fileParts,
-      ];
-      for (const part of parts) {
-        currentDir = await currentDir.getDirectoryHandle(part, {
-          create: true,
-        });
+      if (isBundle) {
+        // Write every file in the bundle, preserving its folder structure
+        const res = await fetch(asset.bundleUrl!);
+        if (!res.ok) throw new Error("Failed to download bundle");
+        const entries = await extractBundle(await res.arrayBuffer());
+        if (entries.length === 0) throw new Error("Bundle is empty");
+        for (const entry of entries) {
+          await writeFile(directoryHandle, [...baseSegments, ...entry.segments], entry.data);
+        }
+      } else {
+        const content = asset.content;
+        if (!content) throw new Error("No content available to install");
+        // primaryFileName may include folders (folder uploads store e.g. "deploy/SKILL.md")
+        const fileSegments = asset.primaryFileName.split("/").filter(Boolean);
+        await writeFile(directoryHandle, [...baseSegments, ...fileSegments], content);
       }
-
-      // Write the file
-      const fileHandle = await currentDir.getFileHandle(fileName, {
-        create: true,
-      });
-      const writable = await fileHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
 
       // Record the sync via server action
       const formData = new FormData();
@@ -289,7 +302,7 @@ export function InstallToProjectDialog({
               {directoryHandle && (
                 <div className="rounded-md bg-muted p-3 space-y-1">
                   <p className="text-xs text-muted-foreground">
-                    File will be written to:
+                    {isBundle ? "Primary file will be written to:" : "File will be written to:"}
                   </p>
                   <p className="text-sm font-mono break-all">{targetPath}</p>
                 </div>
@@ -304,12 +317,11 @@ export function InstallToProjectDialog({
               )}
 
               {/* Bundle note */}
-              {asset.storageType === "BUNDLE" && (
-                <div className="rounded-md border border-yellow-500/25 bg-yellow-500/5 p-3 text-xs text-yellow-400">
-                  This is a bundle asset. Only the primary file (
-                  <span className="font-mono">{asset.primaryFileName}</span>)
-                  will be installed. Use the Download button for the full bundle.
-                </div>
+              {isBundle && (
+                <p className="text-xs text-muted-foreground">
+                  This is a bundle asset. Every file in the bundle will be
+                  installed, keeping its folder structure.
+                </p>
               )}
             </div>
 
@@ -319,7 +331,7 @@ export function InstallToProjectDialog({
               </Button>
               <Button
                 onClick={handleInstall}
-                disabled={!directoryHandle || !asset.content}
+                disabled={!directoryHandle || (!isBundle && !asset.content)}
                 className="gap-1.5"
               >
                 <Download className="size-3.5" />
