@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AssetVault
 
-## Getting Started
+A home for AI skills, commands, and agents — publish them, share them, and keep them in sync across every machine you work on.
 
-First, run the development server:
+Live at **<https://ai-skill-agent-sync.vercel.app>**
+
+## What it does
+
+- **Asset library** — store skills, commands, and agents for Claude Code, Cursor, Windsurf, Gemini CLI, Aider, and more. Upload a single `.md` file, a `.zip`, or drop a whole skill folder (`SKILL.md` plus `references/` and anything else).
+- **Explore and fork** — browse public assets, fork them into your own vault, and track versions.
+- **Sharing** — keep assets private, make them public, or share with specific people by email.
+- **Machine sync** — register your machines, see what's installed where, and install assets straight into a project folder from the browser (Chrome/Edge).
+- **CLI (`av`)** — two-way sync between your vault and local files, including a watch daemon for real-time sync. See [cli/README.md](cli/README.md).
+- **Admin + analytics** — download trends, top assets, and user/asset management for admins.
+
+## Stack
+
+Next.js 16 (App Router) · TypeScript · Prisma 7 on Neon Postgres · Clerk auth · Vercel Blob (bundles) · Resend (share emails) · Tailwind + shadcn/ui · Vitest
+
+## Local setup
+
+Requires Node.js 20+ and pnpm.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install          # also runs prisma generate
+pnpm db:push          # sync the schema to your database
+pnpm db:seed          # optional sample data
+pnpm dev              # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env` file in the repo root:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Postgres connection string (Neon). Use `sslmode=verify-full`. |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Clerk secret key |
+| `CLERK_WEBHOOK_SECRET` | Verifies Clerk user webhooks (`/api/webhooks/clerk`) |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for bundle uploads |
+| `RESEND_API_KEY` | Sends share emails (optional — sharing still works without it) |
+| `ADMIN_USER_IDS` | Comma-separated Clerk user IDs with admin access |
+| `NEXT_PUBLIC_APP_URL` | Public base URL, used in emails, SEO, and CLI setup |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Start the dev server |
+| `pnpm build` | Generate the Prisma client and build for production |
+| `pnpm test` | Run the web app test suite |
+| `pnpm lint` | Lint the project |
+| `pnpm db:studio` | Open Prisma Studio |
+| `cd cli && pnpm test` | Run the CLI test suite |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Pushing to `main` deploys to production on Vercel. Set the environment variables above in the Vercel project settings.
 
-## Deploy on Vercel
+## Project layout
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+src/app/            Routes (pages + API, including /api/cli/* for the CLI)
+src/components/     UI components
+src/lib/            Server actions, validation schemas, helpers
+src/proxy.ts        Clerk auth for /dashboard (CLI routes use API keys instead)
+prisma/             Schema and seed
+cli/                The `av` command-line tool
+```

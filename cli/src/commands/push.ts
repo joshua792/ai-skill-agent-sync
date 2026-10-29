@@ -49,7 +49,7 @@ export async function pushCommand(slug?: string): Promise<void> {
 
   let pushed = 0;
 
-  for (const { link, source } of targets) {
+  for (const { link } of targets) {
     if (!fs.existsSync(link.localPath)) {
       log.warn(`Skipping ${link.assetSlug}: file not found (${link.localPath})`);
       continue;

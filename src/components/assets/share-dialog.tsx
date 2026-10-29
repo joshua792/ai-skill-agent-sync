@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Trash2, Loader2 } from "lucide-react";
 import {
@@ -40,17 +40,16 @@ export function ShareDialog({ assetId, assetName }: ShareDialogProps) {
   const [loadingShares, setLoadingShares] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      loadShares();
-    }
-  }, [open]);
-
   async function loadShares() {
     setLoadingShares(true);
     const result = await getAssetShares(assetId);
     setShares(result);
     setLoadingShares(false);
+  }
+
+  function handleOpenChange(isOpen: boolean) {
+    setOpen(isOpen);
+    if (isOpen) loadShares();
   }
 
   async function handleShare(e: React.FormEvent) {
@@ -86,7 +85,7 @@ export function ShareDialog({ assetId, assetName }: ShareDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-full gap-2">
           <Mail className="size-3.5" /> Share by Email

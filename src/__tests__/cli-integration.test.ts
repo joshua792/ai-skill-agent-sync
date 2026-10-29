@@ -110,7 +110,7 @@ describe("API Key infrastructure alignment", () => {
 
   it("middleware skips Clerk for /api/cli routes", () => {
     const middleware = fs.readFileSync(
-      path.resolve(__dirname, "../middleware.ts"),
+      path.resolve(__dirname, "../proxy.ts"),
       "utf-8"
     );
     expect(middleware).toContain("/api/cli");

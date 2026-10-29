@@ -343,7 +343,7 @@ describe("Clerk webhook displayName contract", () => {
 
     // Find the update block in the upsert call
     const upsertMatch = webhookSource.match(
-      /update:\s*\{([^}]+)\}/s
+      /update:\s*\{([^}]+)\}/
     );
     expect(upsertMatch).not.toBeNull();
 
@@ -367,7 +367,7 @@ describe("Clerk webhook displayName contract", () => {
 
     // Find the create block in the upsert call
     const createMatch = webhookSource.match(
-      /create:\s*\{([^}]+)\}/s
+      /create:\s*\{([^}]+)\}/
     );
     expect(createMatch).not.toBeNull();
 

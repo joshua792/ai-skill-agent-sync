@@ -357,7 +357,7 @@ describe("PLATFORM_COMPATIBILITY_MAP", () => {
 
   it("all suggested compatible platforms are valid PLATFORM_LABELS keys", () => {
     const validPlatforms = Object.keys(PLATFORM_LABELS);
-    for (const [platform, compatibles] of Object.entries(PLATFORM_COMPATIBILITY_MAP)) {
+    for (const compatibles of Object.values(PLATFORM_COMPATIBILITY_MAP)) {
       for (const compat of compatibles) {
         expect(validPlatforms).toContain(compat);
       }

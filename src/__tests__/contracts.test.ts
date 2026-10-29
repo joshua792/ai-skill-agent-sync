@@ -9,7 +9,6 @@ import {
 } from "@/lib/validations/machine";
 import {
   shareAssetSchema,
-  revokeShareSchema,
 } from "@/lib/validations/share";
 import {
   ASSET_TYPE_LABELS,
@@ -148,7 +147,7 @@ describe("FormData fields ↔ schema keys", () => {
       "primaryFileName", "bundleUrl", "bundleManifest",
     ];
     // createAssetSchema uses .refine(), so access the inner schema's shape
-    const inner = (createAssetSchema as any)._def?.schema ?? createAssetSchema;
+    const inner = (createAssetSchema as unknown as { _def?: { schema?: typeof createAssetSchema } })._def?.schema ?? createAssetSchema;
     const schemaKeys = Object.keys(inner.shape);
     expect(formDataKeys.sort()).toEqual(schemaKeys.sort());
   });

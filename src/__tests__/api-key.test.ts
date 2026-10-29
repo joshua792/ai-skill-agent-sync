@@ -401,7 +401,7 @@ describe("API Key Contracts", () => {
     expect(userBlock?.[1]).toContain("apiKeys");
   });
 
-  const middlewarePath = path.resolve(__dirname, "../middleware.ts");
+  const middlewarePath = path.resolve(__dirname, "../proxy.ts");
   const middlewareContent = fs.readFileSync(middlewarePath, "utf-8");
 
   it("middleware excludes /api/cli from Clerk", () => {

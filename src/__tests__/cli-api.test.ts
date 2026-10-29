@@ -274,7 +274,8 @@ describe("cliCreateAssetSchema", () => {
   });
 
   it("defaults installScope to PROJECT when omitted", () => {
-    const { installScope, ...rest } = validInput;
+    const rest: Partial<typeof validInput> = { ...validInput };
+    delete rest.installScope;
     const result = cliCreateAssetSchema.safeParse(rest);
     expect(result.success).toBe(true);
     if (result.success) {

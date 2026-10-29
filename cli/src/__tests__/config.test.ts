@@ -5,9 +5,6 @@ import * as os from "os";
 import {
   getConfigDir,
   getConfigPath,
-  ensureConfigDir,
-  readConfig,
-  writeConfig,
   type GlobalConfig,
 } from "../lib/config.js";
 import {

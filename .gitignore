@@ -42,3 +42,6 @@ next-env.d.ts
 
 /src/generated/prisma
 nul
+
+# AssetVault CLI per-project link file (machine-specific paths)
+.assetvault.json
