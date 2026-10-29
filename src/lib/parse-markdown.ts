@@ -11,6 +11,14 @@ export interface ParsedMarkdown {
   category?: string;
 }
 
+// Match the limits in createAssetSchema so parsed values always validate
+const MAX_NAME_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 280;
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? value.slice(0, max - 3) + "..." : value;
+}
+
 export function parseMarkdownFile(
   filename: string,
   text: string
@@ -34,20 +42,31 @@ export function parseMarkdownFile(
     body = fmMatch[2];
 
     const fmData: Record<string, string> = {};
-    for (const line of frontmatter.split(/\r?\n/)) {
-      const kvMatch = line.match(/^(\w[\w-]*)\s*:\s*(.+)$/);
-      if (kvMatch) {
-        fmData[kvMatch[1].toLowerCase()] = kvMatch[2].trim();
+    const lines = frontmatter.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const kvMatch = lines[i].match(/^(\w[\w-]*)\s*:\s*(.+)$/);
+      if (!kvMatch) continue;
+      let value = kvMatch[2].trim();
+      // YAML block scalar (`>`, `|`, `>-`, ...): value is on the following indented lines
+      if (/^[>|][+-]?$/.test(value)) {
+        const block: string[] = [];
+        while (i + 1 < lines.length && (/^\s+\S/.test(lines[i + 1]) || lines[i + 1].trim() === "")) {
+          block.push(lines[++i].trim());
+        }
+        value = value.startsWith("|")
+          ? block.join("\n").trim()
+          : block.join(" ").replace(/\s+/g, " ").trim();
       }
+      fmData[kvMatch[1].toLowerCase()] = value;
     }
 
     const unquote = (s: string) => s.replace(/^["']|["']$/g, "");
 
     if (fmData["name"]) {
-      result.name = unquote(fmData["name"]);
+      result.name = truncate(unquote(fmData["name"]), MAX_NAME_LENGTH);
     }
     if (fmData["description"]) {
-      result.description = unquote(fmData["description"]);
+      result.description = truncate(unquote(fmData["description"]), MAX_DESCRIPTION_LENGTH);
     }
     if (fmData["tags"]) {
       const raw = fmData["tags"].replace(/^\[|\]$/g, "");
@@ -78,9 +97,7 @@ export function parseMarkdownFile(
   if (!result.description) {
     const descMatch = body.match(/^#\s+.+\r?\n\r?\n(.+)/m);
     if (descMatch) {
-      let desc = descMatch[1].trim();
-      if (desc.length > 280) desc = desc.slice(0, 277) + "...";
-      result.description = desc;
+      result.description = truncate(descMatch[1].trim(), MAX_DESCRIPTION_LENGTH);
     }
   }
 

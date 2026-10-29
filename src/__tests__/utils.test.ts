@@ -104,6 +104,36 @@ describe("parseMarkdownFile", () => {
       expect(result.description).toBe("a".repeat(277) + "...");
       expect(result.description!.length).toBe(280);
     });
+
+    it("truncates frontmatter description longer than 280 chars", () => {
+      const text = `---\nname: deploy\ndescription: ${"b".repeat(400)}\n---\nBody`;
+      const result = parseMarkdownFile("SKILL.md", text);
+      expect(result.description).toBe("b".repeat(277) + "...");
+    });
+
+    it("reads a folded (>) block scalar description from frontmatter", () => {
+      const text = [
+        "---",
+        "name: deploy",
+        "description: >",
+        "  Deploys the app to production.",
+        "  Use when shipping a release.",
+        "tags: [ops]",
+        "---",
+        "Body",
+      ].join("\n");
+      const result = parseMarkdownFile("SKILL.md", text);
+      expect(result.description).toBe(
+        "Deploys the app to production. Use when shipping a release."
+      );
+      expect(result.tags).toEqual(["ops"]);
+    });
+
+    it("truncates frontmatter name longer than 100 chars", () => {
+      const text = `---\nname: ${"n".repeat(150)}\n---\nBody`;
+      const result = parseMarkdownFile("SKILL.md", text);
+      expect(result.name!.length).toBe(100);
+    });
   });
 
   describe("platform/category normalization", () => {

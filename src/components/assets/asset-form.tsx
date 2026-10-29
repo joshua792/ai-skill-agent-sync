@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import type { BundleManifest } from "@/lib/types/bundle";
 
 interface AssetFormProps {
-  action: (formData: FormData) => Promise<void | { success: boolean; redirect?: string }>;
+  action: (formData: FormData) => Promise<void | { success: boolean; redirect?: string; error?: string }>;
   defaultValues?: {
     name?: string;
     description?: string;
@@ -220,8 +220,12 @@ export function AssetForm({
     setPending(true);
     try {
       const result = await action(formData);
+      if (result && !result.success) {
+        toast.error(result.error ?? "Something went wrong");
+        return;
+      }
       toast.success("Asset saved successfully!");
-      if (result && typeof result === "object" && "redirect" in result && result.redirect) {
+      if (result && result.redirect) {
         router.push(result.redirect);
       } else {
         router.refresh();

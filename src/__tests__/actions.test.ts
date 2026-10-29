@@ -51,6 +51,7 @@ vi.mock("@/lib/db", () => ({
 import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import {
+  createAsset,
   deleteAsset,
   downloadAsset,
   forkAsset,
@@ -147,6 +148,46 @@ const sampleAsset = {
 // ═══════════════════════════════════════════════════════
 // Asset Actions
 // ═══════════════════════════════════════════════════════
+
+describe("createAsset", () => {
+  const validFields = {
+    name: "New Skill",
+    description: "A skill that does something useful",
+    type: "SKILL",
+    primaryPlatform: "CLAUDE_CODE",
+    category: "OTHER",
+    tags: "test",
+    visibility: "PRIVATE",
+    license: "MIT",
+    installScope: "PROJECT",
+    storageType: "INLINE",
+    content: "# New Skill",
+    primaryFileName: "SKILL.md",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAuthenticatedUser();
+    mockDb.asset.findUnique.mockResolvedValue(null);
+  });
+
+  it("returns validation error instead of throwing when description is too long", async () => {
+    const result = await createAsset(
+      makeFormData({ ...validFields, description: "a".repeat(281) })
+    );
+    expect(result).toEqual({
+      success: false,
+      error: "Description must be under 280 characters",
+    });
+    expect(mockDb.asset.create).not.toHaveBeenCalled();
+  });
+
+  it("creates the asset and returns a redirect for valid input", async () => {
+    const result = await createAsset(makeFormData(validFields));
+    expect(result).toEqual({ success: true, redirect: "/assets/new-skill" });
+    expect(mockDb.asset.create).toHaveBeenCalled();
+  });
+});
 
 describe("forkAsset", () => {
   beforeEach(() => {

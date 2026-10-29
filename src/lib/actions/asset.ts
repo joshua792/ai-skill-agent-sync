@@ -62,7 +62,7 @@ export async function createAsset(formData: FormData): Promise<ActionResult> {
 
   const { success: withinLimit } = createLimiter.check(userId);
   if (!withinLimit) {
-    throw new Error("Rate limit exceeded. Please try again later.");
+    return { success: false, error: "Rate limit exceeded. Please try again later." };
   }
 
   const storageType = (formData.get("storageType") as string) ?? "INLINE";
@@ -90,9 +90,10 @@ export async function createAsset(formData: FormData): Promise<ActionResult> {
 
   const parsed = createAssetSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new Error(
-      parsed.error.issues.map((i) => i.message).join(", ")
-    );
+    return {
+      success: false,
+      error: parsed.error.issues.map((i) => i.message).join(", "),
+    };
   }
 
   const data = parsed.data;
