@@ -105,22 +105,25 @@ export function InstallToProjectDialog({
       const content = asset.content;
       if (!content) throw new Error("No content available to install");
 
-      // Navigate/create subdirectory path
+      // Navigate/create subdirectory path, including any folders in the
+      // primary file name (folder uploads store e.g. "deploy/SKILL.md")
       let currentDir = directoryHandle;
-      if (subdir && subdir !== ".") {
-        const parts = subdir.split("/").filter(Boolean);
-        for (const part of parts) {
-          currentDir = await currentDir.getDirectoryHandle(part, {
-            create: true,
-          });
-        }
+      const fileParts = asset.primaryFileName.split("/").filter(Boolean);
+      const fileName = fileParts.pop()!;
+      const parts = [
+        ...(subdir && subdir !== "." ? subdir.split("/").filter(Boolean) : []),
+        ...fileParts,
+      ];
+      for (const part of parts) {
+        currentDir = await currentDir.getDirectoryHandle(part, {
+          create: true,
+        });
       }
 
       // Write the file
-      const fileHandle = await currentDir.getFileHandle(
-        asset.primaryFileName,
-        { create: true }
-      );
+      const fileHandle = await currentDir.getFileHandle(fileName, {
+        create: true,
+      });
       const writable = await fileHandle.createWritable();
       await writable.write(content);
       await writable.close();
@@ -151,7 +154,7 @@ export function InstallToProjectDialog({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = asset.primaryFileName;
+      a.download = asset.primaryFileName.split("/").pop()!;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

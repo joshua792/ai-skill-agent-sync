@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Upload, FileText, Package, Loader2 } from "lucide-react";
+import { Upload, FileText, Package, Loader2, FolderOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,13 @@ import {
   MAX_BUNDLE_SIZE_MB,
 } from "@/lib/constants";
 import { parseMarkdownFile } from "@/lib/parse-markdown";
+import {
+  type FolderFile,
+  filesFromDirectoryEntry,
+  filesFromDirectoryInput,
+  pickPrimaryFile,
+  zipFolder,
+} from "@/lib/folder-upload";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BundleManifest } from "@/lib/types/bundle";
@@ -64,6 +71,7 @@ export function AssetForm({
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [parsedValues, setParsedValues] = useState<
     Partial<NonNullable<AssetFormProps["defaultValues"]>>
   >({});
@@ -109,6 +117,45 @@ export function AssetForm({
   const autoFileName = DEFAULT_FILE_NAMES[selectedType] ?? "README.md";
   const isBundle = storageType === "BUNDLE";
 
+  function applyParsedMarkdown(
+    fileName: string,
+    text: string,
+    opts: { primaryFileName?: string; fallbackName?: string } = {}
+  ) {
+    const parsed = parseMarkdownFile(fileName, text);
+
+    const next: Partial<NonNullable<AssetFormProps["defaultValues"]>> = {
+      content: parsed.content,
+      primaryFileName: opts.primaryFileName ?? parsed.primaryFileName,
+    };
+    if (parsed.type) next.type = parsed.type;
+    const name = parsed.name ?? opts.fallbackName;
+    if (name) next.name = name;
+    if (parsed.description) next.description = parsed.description;
+    if (parsed.tags?.length) next.tags = parsed.tags;
+    if (parsed.primaryPlatform) next.primaryPlatform = parsed.primaryPlatform;
+    if (parsed.category) next.category = parsed.category;
+
+    setParsedValues(next);
+    setSelectedType(next.type ?? defaultValues.type ?? "SKILL");
+    if (next.primaryPlatform) {
+      setSelectedPlatform(next.primaryPlatform);
+      setCompatChecked(new Set(PLATFORM_COMPATIBILITY_MAP[next.primaryPlatform] ?? []));
+    }
+    setDescLength(next.description?.length ?? 0);
+    setFileNameTouched(true);
+    setFieldKey((k) => k + 1);
+
+    return [
+      name,
+      parsed.description,
+      parsed.type,
+      parsed.tags?.length,
+      parsed.primaryPlatform,
+      parsed.category,
+    ].filter(Boolean).length + 2; // +2 for content & filename
+  }
+
   function handleFileUpload(file: File) {
     if (!file.name.endsWith(".md")) {
       toast.error("Please upload a .md file");
@@ -122,64 +169,18 @@ export function AssetForm({
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const parsed = parseMarkdownFile(file.name, text);
-
-      const next: Partial<NonNullable<AssetFormProps["defaultValues"]>> = {
-        content: parsed.content,
-        primaryFileName: parsed.primaryFileName,
-      };
-      if (parsed.type) next.type = parsed.type;
-      if (parsed.name) next.name = parsed.name;
-      if (parsed.description) next.description = parsed.description;
-      if (parsed.tags?.length) next.tags = parsed.tags;
-      if (parsed.primaryPlatform) next.primaryPlatform = parsed.primaryPlatform;
-      if (parsed.category) next.category = parsed.category;
-
-      setParsedValues(next);
-      setSelectedType(next.type ?? defaultValues.type ?? "SKILL");
-      if (next.primaryPlatform) {
-        setSelectedPlatform(next.primaryPlatform);
-        setCompatChecked(new Set(PLATFORM_COMPATIBILITY_MAP[next.primaryPlatform] ?? []));
-      }
-      setDescLength(next.description?.length ?? 0);
-      setFileNameTouched(true);
+      const filled = applyParsedMarkdown(file.name, text);
       setUploadedFile(file.name);
-      setFieldKey((k) => k + 1);
-
-      const filled = [
-        parsed.name,
-        parsed.description,
-        parsed.type,
-        parsed.tags?.length,
-        parsed.primaryPlatform,
-        parsed.category,
-      ].filter(Boolean).length + 2; // +2 for content & filename
       toast.success(`Parsed ${filled} fields from ${file.name}`);
     };
     reader.readAsText(file);
   }
 
-  async function handleZipUpload(file: File) {
-    if (!file.name.endsWith(".zip")) {
-      toast.error("Please upload a .zip file");
-      return;
-    }
-    if (file.size > MAX_BUNDLE_SIZE_MB * 1024 * 1024) {
-      toast.error(`File too large. Maximum size is ${MAX_BUNDLE_SIZE_MB} MB.`);
-      return;
-    }
-
+  async function uploadBundle(file: Blob, zipName: string, primaryFileName: string) {
     setUploadingZip(true);
 
-    // Get the current primary file name from the form
-    const form = formRef.current;
-    const primaryFileNameInput = form?.querySelector<HTMLInputElement>(
-      'input[name="primaryFileName"]'
-    );
-    const primaryFileName = primaryFileNameInput?.value || autoFileName;
-
     const formData = new FormData();
-    formData.set("file", file);
+    formData.set("file", file, zipName);
     formData.set("primaryFileName", primaryFileName);
 
     try {
@@ -197,17 +198,92 @@ export function AssetForm({
       setBundleUrl(data.url);
       setBundleManifest(data.manifest);
       setBundleContent(data.primaryFileContent ?? "");
-      setUploadedZipName(file.name);
+      setUploadedZipName(zipName);
       toast.success(
-        `Uploaded ${file.name} — ${data.manifest.fileCount} files, ${formatBytes(data.manifest.totalSize)}`
+        `Uploaded ${zipName} — ${data.manifest.fileCount} files, ${formatBytes(data.manifest.totalSize)}`
       );
+      return true;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Something went wrong";
       toast.error(message);
+      return false;
     } finally {
       setUploadingZip(false);
     }
+  }
+
+  async function handleZipUpload(file: File) {
+    if (!file.name.endsWith(".zip")) {
+      toast.error("Please upload a .zip file");
+      return;
+    }
+    if (file.size > MAX_BUNDLE_SIZE_MB * 1024 * 1024) {
+      toast.error(`File too large. Maximum size is ${MAX_BUNDLE_SIZE_MB} MB.`);
+      return;
+    }
+
+    // Get the current primary file name from the form
+    const form = formRef.current;
+    const primaryFileNameInput = form?.querySelector<HTMLInputElement>(
+      'input[name="primaryFileName"]'
+    );
+    const primaryFileName = primaryFileNameInput?.value || autoFileName;
+
+    await uploadBundle(file, file.name, primaryFileName);
+  }
+
+  async function handleFolderUpload(files: FolderFile[]) {
+    if (files.length === 0) {
+      toast.error("That folder is empty");
+      return;
+    }
+    const folderName = files[0].path.split("/")[0];
+    const primary = pickPrimaryFile(files);
+    if (!primary) {
+      toast.error(`No .md file found at the top level of ${folderName}/`);
+      return;
+    }
+
+    // Stored as "deploy/SKILL.md" so installs recreate the skill folder
+    const primaryName = primary.path.split("/").pop()!;
+    const text = await primary.file.text();
+    const filled = applyParsedMarkdown(primaryName, text, {
+      primaryFileName: primary.path,
+      fallbackName: folderName,
+    });
+
+    if (files.length === 1) {
+      setStorageType("INLINE");
+      setUploadedFile(primary.path);
+      toast.success(`Parsed ${filled} fields from ${primary.path}`);
+      return;
+    }
+
+    setStorageType("BUNDLE");
+    const zip = await zipFolder(files);
+    if (zip.size > MAX_BUNDLE_SIZE_MB * 1024 * 1024) {
+      toast.error(`Folder too large. Maximum size is ${MAX_BUNDLE_SIZE_MB} MB zipped.`);
+      return;
+    }
+    await uploadBundle(zip, `${folderName}.zip`, primary.path);
+  }
+
+  async function handleDrop(e: React.DragEvent, onFile: (file: File) => void) {
+    e.preventDefault();
+    setIsDragging(false);
+    const entry = e.dataTransfer.items[0]?.webkitGetAsEntry();
+    if (entry?.isDirectory) {
+      try {
+        const files = await filesFromDirectoryEntry(entry as FileSystemDirectoryEntry);
+        await handleFolderUpload(files);
+      } catch {
+        toast.error("Couldn't read that folder");
+      }
+      return;
+    }
+    const file = e.dataTransfer.files[0];
+    if (file) onFile(file);
   }
 
   function handlePlatformChange(platform: string) {
@@ -270,6 +346,35 @@ export function AssetForm({
         </div>
       </div>
 
+      {/* Folder picker (works in either storage mode) */}
+      <div className="flex items-center gap-3 -mb-4">
+        <input
+          ref={folderInputRef}
+          type="file"
+          className="hidden"
+          {...{ webkitdirectory: "" }}
+          onChange={(e) => {
+            const list = e.target.files;
+            if (list?.length) handleFolderUpload(filesFromDirectoryInput(list));
+            e.target.value = "";
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={uploadingZip}
+          onClick={() => folderInputRef.current?.click()}
+        >
+          <FolderOpen className="size-4" />
+          Choose skill folder
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Uploads SKILL.md plus everything else in the folder
+        </span>
+      </div>
+
       {/* File Upload Drop Zone (Inline) */}
       {!isBundle && (
         <div
@@ -281,12 +386,7 @@ export function AssetForm({
             e.preventDefault();
             setIsDragging(false);
           }}
-          onDrop={(e) => {
-            e.preventDefault();
-            setIsDragging(false);
-            const file = e.dataTransfer.files[0];
-            if (file) handleFileUpload(file);
-          }}
+          onDrop={(e) => handleDrop(e, handleFileUpload)}
           onClick={() => fileInputRef.current?.click()}
           className={cn(
             "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
@@ -326,11 +426,12 @@ export function AssetForm({
             <>
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Drop a <span className="font-mono">.md</span> file here, or click
-                to browse
+                Drop a <span className="font-mono">.md</span> file or a skill
+                folder here, or click to browse
               </p>
               <p className="text-xs text-muted-foreground">
-                Fields will be auto-filled from the file content
+                Fields will be auto-filled from the file content. Folders keep
+                every file (e.g. <span className="font-mono">references/</span>).
               </p>
             </>
           )}
@@ -349,12 +450,7 @@ export function AssetForm({
               e.preventDefault();
               setIsDragging(false);
             }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              const file = e.dataTransfer.files[0];
-              if (file) handleZipUpload(file);
-            }}
+            onDrop={(e) => handleDrop(e, handleZipUpload)}
             onClick={() => !uploadingZip && zipInputRef.current?.click()}
             className={cn(
               "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
@@ -402,8 +498,8 @@ export function AssetForm({
               <>
                 <Package className="h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Drop a <span className="font-mono">.zip</span> file here, or
-                  click to browse
+                  Drop a <span className="font-mono">.zip</span> file or a
+                  folder here, or click to browse
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Maximum {MAX_BUNDLE_SIZE_MB} MB. The primary file will be
